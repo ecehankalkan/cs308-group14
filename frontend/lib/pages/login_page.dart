@@ -75,6 +75,17 @@ class _LoginPageState extends State<LoginPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFFF0F2F5),
+      appBar: AppBar(
+        backgroundColor: const Color(0xFFF0F2F5),
+        elevation: 0,
+        scrolledUnderElevation: 0,
+        automaticallyImplyLeading: false,
+        leading: BackButton(
+          onPressed: () {
+            Navigator.of(context).popUntil((route) => route.isFirst);
+          },
+        ),
+      ),
       body: Center(
         child: SingleChildScrollView(
           padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 48),
@@ -141,6 +152,8 @@ class _LoginPageState extends State<LoginPage> {
             _buildLoginButton(),
             const SizedBox(height: 16),
             _buildResetLink(),
+            const SizedBox(height: 12),
+            _buildSignupLink(),
           ],
         ),
       ),
@@ -360,6 +373,27 @@ class _LoginPageState extends State<LoginPage> {
             fontWeight: FontWeight.w500,
             decoration: TextDecoration.underline,
             decorationColor: Color(0xFF1A73E8),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSignupLink() {
+    return Center(
+      child: TextButton(
+        onPressed: () => Navigator.pushNamed(context, '/signup'),
+        style: TextButton.styleFrom(
+          foregroundColor: const Color(0xFF1A73E8),
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+          minimumSize: Size.zero,
+          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+        ),
+        child: const Text(
+          "Don't have an account? Sign Up",
+          style: TextStyle(
+            fontSize: 14,
+            fontWeight: FontWeight.w500,
           ),
         ),
       ),
