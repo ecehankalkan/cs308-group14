@@ -43,3 +43,9 @@ app.*.map.json
 /android/app/debug
 /android/app/profile
 /android/app/release
+
+# Generated plugin registrant files (auto-regenerated on every flutter run)
+**/flutter/generated_plugin_registrant.cc
+**/flutter/generated_plugin_registrant.h
+**/flutter/generated_plugins.cmake
+**/Flutter/GeneratedPluginRegistrant.swift
