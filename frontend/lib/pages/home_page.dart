@@ -27,14 +27,9 @@ class HomePage extends StatelessWidget {
                   },
                 ),
               ],
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16.0),
-                child: Center(
-                  child: ElevatedButton(
-                    onPressed: null,
-                    child: const Text('Account'),
-                  ),
-                ),
+              child: const Padding(
+                padding: EdgeInsets.symmetric(horizontal: 16.0),
+                child: Icon(Icons.account_circle, size: 32),
               ),
             ),
           ),
