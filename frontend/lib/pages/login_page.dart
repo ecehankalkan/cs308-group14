@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../services/auth_service.dart';
 
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
@@ -11,6 +12,7 @@ class _LoginPageState extends State<LoginPage> {
   final _formKey = GlobalKey<FormState>();
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
+  final AuthService _authService = AuthService();
 
   bool _obscurePassword = true;
   bool _isLoading = false;
@@ -27,18 +29,24 @@ class _LoginPageState extends State<LoginPage> {
 
     setState(() => _isLoading = true);
 
-    // TODO: replace with real auth call
-    await Future.delayed(const Duration(seconds: 2));
+    final user = await _authService.login(
+      email: _emailController.text.trim(),
+      password: _passwordController.text,
+      context: context,
+    );
 
     setState(() => _isLoading = false);
 
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Login successful!'),
-        backgroundColor: Color(0xFF2E7D32),
-      ),
-    );
+    if (user != null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Login successful!'),
+          backgroundColor: Color(0xFF2E7D32),
+        ),
+      );
+      Navigator.of(context).popUntil((route) => route.isFirst);
+    }
   }
 
   void _handleResetPassword() {
@@ -56,12 +64,18 @@ class _LoginPageState extends State<LoginPage> {
             child: const Text('Cancel'),
           ),
           FilledButton(
-            onPressed: () {
+            onPressed: () async {
               Navigator.of(context).pop();
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Text('Reset link sent — check your inbox.'),
-                ),
+              final email = _emailController.text.trim();
+              if (email.isEmpty) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Please enter your email address first.')),
+                );
+                return;
+              }
+              await _authService.resetPassword(
+                email: email,
+                context: context,
               );
             },
             child: const Text('Send Link'),
