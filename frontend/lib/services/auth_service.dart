@@ -86,8 +86,11 @@ class AuthService {
     }
   }
 
-  void _showError(BuildContext context, String message) {
-    if (!context.mounted) return;
+  Future<void> signOut() async {
+    await _auth.signOut();
+  }
+
+  void _showError(BuildContext context, String message) {    if (!context.mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(message),
