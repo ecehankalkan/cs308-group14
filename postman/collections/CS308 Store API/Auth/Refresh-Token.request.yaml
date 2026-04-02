@@ -1,0 +1,15 @@
+$kind: http-request
+name: Refresh Token
+method: POST
+url: '{{baseUrl}}/api/token/refresh/'
+order: 3000
+description: Get a new access token using a refresh token.
+headers:
+  - key: Content-Type
+    value: application/json
+body:
+  type: json
+  content: |-
+    {
+      "refresh": "{{refreshToken}}"
+    }

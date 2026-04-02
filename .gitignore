@@ -1,0 +1,31 @@
+# Django sensitive settings — never commit real credentials
+backend/config/settings.py
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.Python
+*.egg-info/
+dist/
+build/
+.eggs/
+
+# Virtual environments
+venv/
+env/
+.env
+.venv/
+
+# Django generated
+*.sqlite3
+backend/staticfiles/
+backend/media/
+
+# Migrations (optional — remove these lines if your team wants to track migrations)
+# backend/store/migrations/
+
+# OS
+.DS_Store
+Thumbs.db

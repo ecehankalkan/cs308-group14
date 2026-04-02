@@ -1,0 +1,11 @@
+$kind: http-request
+name: Get Cart Item
+method: GET
+url: '{{baseUrl}}/api/cart/{{cartItemId}}/'
+order: 3000
+description: Get a specific cart item.
+auth:
+  type: bearer
+  credentials:
+    - key: token
+      value: '{{accessToken}}'

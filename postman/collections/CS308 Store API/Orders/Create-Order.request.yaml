@@ -1,0 +1,21 @@
+$kind: http-request
+name: Create Order
+method: POST
+url: '{{baseUrl}}/api/orders/'
+order: 2000
+description: Place a new order.
+auth:
+  type: bearer
+  credentials:
+    - key: token
+      value: '{{accessToken}}'
+headers:
+  - key: Content-Type
+    value: application/json
+body:
+  type: json
+  content: |-
+    {
+      "total_price": "29.99",
+      "delivery_address": "123 Main St"
+    }

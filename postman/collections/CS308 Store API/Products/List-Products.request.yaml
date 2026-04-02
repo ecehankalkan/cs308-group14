@@ -1,0 +1,6 @@
+$kind: http-request
+name: List Products
+method: GET
+url: '{{baseUrl}}/api/products/'
+order: 1000
+description: Get all products. Public endpoint, no auth required.

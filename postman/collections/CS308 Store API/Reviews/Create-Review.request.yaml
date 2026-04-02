@@ -1,0 +1,22 @@
+$kind: http-request
+name: Create Review
+method: POST
+url: '{{baseUrl}}/api/reviews/'
+order: 2000
+description: Submit a review for a product. Rating is 1-10.
+auth:
+  type: bearer
+  credentials:
+    - key: token
+      value: '{{accessToken}}'
+headers:
+  - key: Content-Type
+    value: application/json
+body:
+  type: json
+  content: |-
+    {
+      "product": 1,
+      "rating": 8,
+      "comment": "Great product!"
+    }

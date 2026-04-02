@@ -1,0 +1,11 @@
+$kind: http-request
+name: Get Wishlist
+method: GET
+url: '{{baseUrl}}/api/wishlist/'
+order: 1000
+description: Get all wishlist items for the authenticated user.
+auth:
+  type: bearer
+  credentials:
+    - key: token
+      value: '{{accessToken}}'

@@ -1,0 +1,30 @@
+name: CS308 Local
+values:
+  - key: baseUrl
+    value: 'http://localhost:8000'
+    enabled: true
+    type: default
+  - key: accessToken
+    value: ''
+    enabled: true
+    type: default
+  - key: refreshToken
+    value: ''
+    enabled: true
+    type: default
+  - key: productId
+    value: '1'
+    enabled: true
+    type: default
+  - key: cartItemId
+    value: '1'
+    enabled: true
+    type: default
+  - key: wishlistItemId
+    value: '1'
+    enabled: true
+    type: default
+  - key: orderId
+    value: '1'
+    enabled: true
+    type: default

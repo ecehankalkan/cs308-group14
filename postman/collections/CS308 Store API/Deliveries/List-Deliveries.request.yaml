@@ -1,0 +1,11 @@
+$kind: http-request
+name: List Deliveries
+method: GET
+url: '{{baseUrl}}/api/deliveries/'
+order: 1000
+description: Get all deliveries for the authenticated user.
+auth:
+  type: bearer
+  credentials:
+    - key: token
+      value: '{{accessToken}}'

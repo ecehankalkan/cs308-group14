@@ -1,0 +1,21 @@
+$kind: http-request
+name: Request Refund
+method: POST
+url: '{{baseUrl}}/api/refunds/'
+order: 2000
+description: Submit a refund request for an order item.
+auth:
+  type: bearer
+  credentials:
+    - key: token
+      value: '{{accessToken}}'
+headers:
+  - key: Content-Type
+    value: application/json
+body:
+  type: json
+  content: |-
+    {
+      "order_item": 1,
+      "refund_amount": "14.99"
+    }

@@ -1,0 +1,17 @@
+$kind: collection
+name: CS308 Store API
+variables:
+  - key: baseUrl
+    value: 'http://localhost:8000'
+  - key: accessToken
+    value: ''
+  - key: refreshToken
+    value: ''
+  - key: productId
+    value: '1'
+  - key: cartItemId
+    value: '1'
+  - key: wishlistItemId
+    value: '1'
+  - key: orderId
+    value: '1'

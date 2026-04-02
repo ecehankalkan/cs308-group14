@@ -1,0 +1,11 @@
+$kind: http-request
+name: List Refunds
+method: GET
+url: '{{baseUrl}}/api/refunds/'
+order: 1000
+description: Get all refund requests for the authenticated user.
+auth:
+  type: bearer
+  credentials:
+    - key: token
+      value: '{{accessToken}}'

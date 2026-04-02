@@ -1,0 +1,11 @@
+$kind: http-request
+name: List Orders
+method: GET
+url: '{{baseUrl}}/api/orders/'
+order: 1000
+description: Get all orders for the authenticated user.
+auth:
+  type: bearer
+  credentials:
+    - key: token
+      value: '{{accessToken}}'

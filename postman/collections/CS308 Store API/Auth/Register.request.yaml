@@ -1,0 +1,19 @@
+$kind: http-request
+name: Register
+method: POST
+url: '{{baseUrl}}/api/register/'
+order: 1000
+description: Register a new customer. Returns user object, access token, and refresh token.
+headers:
+  - key: Content-Type
+    value: application/json
+body:
+  type: json
+  content: |-
+    {
+      "email": "user@example.com",
+      "name": "John Doe",
+      "tax_id": "12345",
+      "home_address": "123 Main St",
+      "password": "password123"
+    }

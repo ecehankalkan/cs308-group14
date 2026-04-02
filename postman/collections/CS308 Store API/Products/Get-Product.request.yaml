@@ -1,0 +1,6 @@
+$kind: http-request
+name: Get Product
+method: GET
+url: '{{baseUrl}}/api/products/{{productId}}/'
+order: 2000
+description: Get a single product by ID. Public endpoint.
