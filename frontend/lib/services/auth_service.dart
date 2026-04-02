@@ -1,27 +1,79 @@
+import 'dart:convert';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http;
+import 'package:shared_preferences/shared_preferences.dart';
 
 class AuthService {
   final FirebaseAuth _auth = FirebaseAuth.instance;
 
-  // Sign up with email and password
+  static const String _baseUrl    = 'http://localhost:8000';
+  static const String _keyAccess  = 'access_token';
+  static const String _keyRefresh = 'refresh_token';
+
+  // ---------------------------------------------------------------------------
+  // Token helpers
+  // ---------------------------------------------------------------------------
+
+  static Future<void> _saveTokens(String access, String refresh) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_keyAccess, access);
+    await prefs.setString(_keyRefresh, refresh);
+  }
+
+  static Future<String?> getAccessToken() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getString(_keyAccess);
+  }
+
+  /// Returns headers with Bearer token for authenticated API calls.
+  static Future<Map<String, String>> getAuthHeaders() async {
+    final token = await getAccessToken();
+    return {
+      'Authorization': 'Bearer $token',
+      'Content-Type': 'application/json',
+    };
+  }
+
+  // ---------------------------------------------------------------------------
+  // Sign up — Firebase auth + Django backend registration
+  // ---------------------------------------------------------------------------
+
   Future<UserCredential?> signUp({
     required String email,
     required String password,
     required String name,
     required String surname,
+    required String taxId,
+    required String homeAddress,
     required BuildContext context,
   }) async {
     try {
-      UserCredential userCredential = await _auth.createUserWithEmailAndPassword(
+      final userCredential = await _auth.createUserWithEmailAndPassword(
         email: email,
         password: password,
       );
-      
-      // Update display name with the user's real name
       await userCredential.user?.updateDisplayName('$name $surname');
+
+      final response = await http.post(
+        Uri.parse('$_baseUrl/api/register/'),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({
+          'email':        email,
+          'password':     password,
+          'name':         '$name $surname',
+          'tax_id':       taxId,
+          'home_address': homeAddress,
+        }),
+      );
+
+      if (response.statusCode == 201) {
+        final body = jsonDecode(response.body) as Map<String, dynamic>;
+        await _saveTokens(body['access'] as String, body['refresh'] as String);
+      }
+
       return userCredential;
-      
+
     } on FirebaseAuthException catch (e) {
       String errorMessage = 'An error occurred during sign up.';
       if (e.code == 'weak-password') {
@@ -29,26 +81,44 @@ class AuthService {
       } else if (e.code == 'email-already-in-use') {
         errorMessage = 'An account already exists for that email.';
       }
+      if (!context.mounted) return null;
       _showError(context, errorMessage);
       return null;
     } catch (e) {
+      if (!context.mounted) return null;
       _showError(context, 'Something went wrong. Please try again.');
       return null;
     }
   }
 
-  // Log in with email and password
+  // ---------------------------------------------------------------------------
+  // Login — Firebase auth + Django JWT
+  // ---------------------------------------------------------------------------
+
   Future<UserCredential?> login({
     required String email,
     required String password,
     required BuildContext context,
   }) async {
     try {
-      UserCredential userCredential = await _auth.signInWithEmailAndPassword(
+      final userCredential = await _auth.signInWithEmailAndPassword(
         email: email,
         password: password,
       );
+
+      final response = await http.post(
+        Uri.parse('$_baseUrl/api/login/'),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({'email': email, 'password': password}),
+      );
+
+      if (response.statusCode == 200) {
+        final body = jsonDecode(response.body) as Map<String, dynamic>;
+        await _saveTokens(body['access'] as String, body['refresh'] as String);
+      }
+
       return userCredential;
+
     } on FirebaseAuthException catch (e) {
       String errorMessage = 'Failed to log in.';
       if (e.code == 'user-not-found') {
@@ -58,21 +128,27 @@ class AuthService {
       } else if (e.code == 'invalid-credential') {
         errorMessage = 'Invalid email or password.';
       }
+      if (!context.mounted) return null;
       _showError(context, errorMessage);
       return null;
     } catch (e) {
+      if (!context.mounted) return null;
       _showError(context, 'Something went wrong. Please try again.');
       return null;
     }
   }
 
+  // ---------------------------------------------------------------------------
   // Reset password
+  // ---------------------------------------------------------------------------
+
   Future<void> resetPassword({
     required String email,
     required BuildContext context,
   }) async {
     try {
       await _auth.sendPasswordResetEmail(email: email);
+      if (!context.mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('Password reset link sent! Check your inbox.'),
@@ -80,22 +156,29 @@ class AuthService {
         ),
       );
     } on FirebaseAuthException catch (e) {
+      if (!context.mounted) return;
       _showError(context, e.message ?? 'Could not send reset email.');
     } catch (e) {
+      if (!context.mounted) return;
       _showError(context, 'Something went wrong.');
     }
   }
 
+  // ---------------------------------------------------------------------------
+  // Sign out — clear Firebase session and stored tokens
+  // ---------------------------------------------------------------------------
+
   Future<void> signOut() async {
     await _auth.signOut();
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove(_keyAccess);
+    await prefs.remove(_keyRefresh);
   }
 
-  void _showError(BuildContext context, String message) {    if (!context.mounted) return;
+  void _showError(BuildContext context, String message) {
+    if (!context.mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(message),
-        backgroundColor: Colors.red,
-      ),
+      SnackBar(content: Text(message), backgroundColor: Colors.red),
     );
   }
 }

@@ -20,11 +20,16 @@ class CustomerSerializer(serializers.ModelSerializer):
 
 
 class ProductSerializer(serializers.ModelSerializer):
+    in_stock = serializers.SerializerMethodField()
+
     class Meta:
         model  = Product
         fields = ['id', 'name', 'model', 'serial_number', 'description',
-                  'stock_quantity', 'price', 'discounted_price',
+                  'stock_quantity', 'price', 'discounted_price', 'in_stock',
                   'warranty_status', 'distributor_info', 'category', 'popularity_score']
+
+    def get_in_stock(self, obj):
+        return obj.stock_quantity > 0
 
 
 class CartSerializer(serializers.ModelSerializer):
@@ -65,6 +70,17 @@ class OrderSerializer(serializers.ModelSerializer):
         fields = ['id', 'total_price', 'status', 'delivery_address', 'created_at', 'items']
 
 
+# Used only for validating POST /api/orders/ input
+class OrderItemInputSerializer(serializers.Serializer):
+    product_id = serializers.IntegerField()
+    quantity   = serializers.IntegerField(min_value=1)
+
+
+class OrderCreateSerializer(serializers.Serializer):
+    delivery_address = serializers.CharField()
+    items            = OrderItemInputSerializer(many=True, min_length=1)
+
+
 class ReviewSerializer(serializers.ModelSerializer):
     class Meta:
         model  = Review
@@ -82,5 +98,5 @@ class RefundSerializer(serializers.ModelSerializer):
 class DeliverySerializer(serializers.ModelSerializer):
     class Meta:
         model  = Delivery
-        fields = ['id', 'order', 'product', 'quantity', 'total_price',
+        fields = ['id', 'order', 'customer', 'product', 'quantity', 'total_price',
                   'delivery_address', 'is_completed']

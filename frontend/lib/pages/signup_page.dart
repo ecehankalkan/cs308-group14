@@ -15,6 +15,8 @@ class _SignupPageState extends State<SignupPage> {
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   final _confirmPasswordController = TextEditingController();
+  final _taxIdController = TextEditingController();
+  final _addressController = TextEditingController();
   
   final AuthService _authService = AuthService();
   bool _isLoading = false;
@@ -26,6 +28,8 @@ class _SignupPageState extends State<SignupPage> {
     _emailController.dispose();
     _passwordController.dispose();
     _confirmPasswordController.dispose();
+    _taxIdController.dispose();
+    _addressController.dispose();
     super.dispose();
   }
 
@@ -39,6 +43,8 @@ class _SignupPageState extends State<SignupPage> {
       password: _passwordController.text,
       name: _nameController.text.trim(),
       surname: _surnameController.text.trim(),
+      taxId: _taxIdController.text.trim(),
+      homeAddress: _addressController.text.trim(),
       context: context,
     );
 
@@ -83,6 +89,20 @@ class _SignupPageState extends State<SignupPage> {
                     controller: _surnameController,
                     decoration: const InputDecoration(labelText: 'Surname', border: OutlineInputBorder()),
                     validator: (v) => v!.trim().isEmpty ? 'Please enter your surname' : null,
+                  ),
+                  const SizedBox(height: 16),
+                  TextFormField(
+                    controller: _taxIdController,
+                    decoration: const InputDecoration(labelText: 'Tax ID', border: OutlineInputBorder()),
+                    keyboardType: TextInputType.number,
+                    validator: (v) => v!.trim().isEmpty ? 'Please enter your Tax ID' : null,
+                  ),
+                  const SizedBox(height: 16),
+                  TextFormField(
+                    controller: _addressController,
+                    decoration: const InputDecoration(labelText: 'Home Address', border: OutlineInputBorder()),
+                    maxLines: 3,
+                    validator: (v) => v!.trim().isEmpty ? 'Please enter your home address' : null,
                   ),
                   const SizedBox(height: 16),
                   TextFormField(
