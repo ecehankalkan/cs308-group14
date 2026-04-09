@@ -15,7 +15,7 @@ class CartPage extends StatefulWidget {
 }
 
 class _CartPageState extends State<CartPage> {
-  final MockCartService _cartService = MockCartService();
+  final CartService _cartService = CartService();
   bool _isLoading = true;
   bool _isUpdating = false;
   bool _isPaymentConfirmed = false;

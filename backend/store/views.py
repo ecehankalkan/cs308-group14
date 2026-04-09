@@ -42,12 +42,33 @@ class RegisterView(generics.CreateAPIView):
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         customer = serializer.save()
+
+        session_key = request.session.session_key
+        CartBeforeLoginService.merge_guest_cart(session_key, customer)
+
         refresh  = RefreshToken.for_user(customer)
         return Response({
             'user':    CustomerSerializer(customer).data,
             'access':  str(refresh.access_token),
             'refresh': str(refresh),
         }, status=status.HTTP_201_CREATED)
+
+
+from .cart_beforelogin_service import CartBeforeLoginService
+
+
+from rest_framework_simplejwt.views import TokenObtainPairView
+
+class CustomTokenObtainPairView(TokenObtainPairView):
+    """Custom login view to merge the cart after obtaining tokens."""
+    def post(self, request, *args, **kwargs):
+        response = super().post(request, *args, **kwargs)
+        if response.status_code == status.HTTP_200_OK:
+            serializer = self.get_serializer(data=request.data)
+            if serializer.is_valid():
+                session_key = request.session.session_key
+                CartBeforeLoginService.merge_guest_cart(session_key, serializer.user)
+        return response
 
 
 class MeView(APIView):
@@ -161,6 +182,17 @@ class CartView(generics.ListCreateAPIView):
 
     def get_queryset(self):
         return Cart.objects.filter(customer=self.request.user)
+
+    def create(self, request, *args, **kwargs):
+        product_id = request.data.get('product_id')
+        quantity = int(request.data.get('quantity', 1))
+        existing_item = CartBeforeLoginService.add_product_to_cart(
+            customer=request.user, session_key=None, product_id=product_id, quantity=quantity
+        )
+        if existing_item:
+            serializer = self.get_serializer(existing_item)
+            return Response(serializer.data, status=status.HTTP_200_OK)
+        return super().create(request, *args, **kwargs)
 
     def perform_create(self, serializer):
         serializer.save(customer=self.request.user)
