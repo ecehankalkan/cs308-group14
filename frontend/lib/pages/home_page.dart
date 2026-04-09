@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../services/auth_service.dart';
+import '../services/cart_service.dart';
 import '../models/product.dart';
 
 const _dark = Color(0xFF8D7B68);
@@ -398,7 +399,18 @@ class _ProductCard extends StatelessWidget {
                 SizedBox(
                   width: double.infinity,
                   child: ElevatedButton(
-                    onPressed: product.stockQuantity > 0 ? () {} : null,
+                    onPressed: product.stockQuantity > 0 ? () async {
+                      try {
+                        await CartService().updateQuantity(productId: product.id, requestedQuantity: 1);
+                        if (context.mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('${product.name} added to cart!'), backgroundColor: Colors.green));
+                        }
+                      } catch (e) {
+                         if (context.mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Failed to add ${product.name} '), backgroundColor: Colors.red));
+                         }
+                      }
+                    } : null,
                     style: ElevatedButton.styleFrom(
                       backgroundColor: _dark,
                       foregroundColor: _offWhite,

@@ -39,6 +39,18 @@ class AuthService {
   // Sign up — Firebase auth + Django backend registration
   // ---------------------------------------------------------------------------
 
+  static Future<Map<String, String>> _getBaseHeaders() async {
+    final prefs = await SharedPreferences.getInstance();
+    final cookieStr = prefs.getString('sessionid_cookie');
+    final headers = {'Content-Type': 'application/json'};
+    if (cookieStr != null && cookieStr.isNotEmpty) {
+      final sessionId = cookieStr.replaceAll('sessionid=', '').trim();
+      headers['X-Session-Id'] = sessionId;
+      headers['Cookie'] = cookieStr;
+    }
+    return headers;
+  }
+
   Future<UserCredential?> signUp({
     required String email,
     required String password,
@@ -55,9 +67,10 @@ class AuthService {
       );
       await userCredential.user?.updateDisplayName('$name $surname');
 
+      final headers = await _getBaseHeaders();
       final response = await http.post(
         Uri.parse('$_baseUrl/api/register/'),
-        headers: {'Content-Type': 'application/json'},
+        headers: headers,
         body: jsonEncode({
           'email':        email,
           'password':     password,
@@ -106,9 +119,10 @@ class AuthService {
         password: password,
       );
 
+      final headers = await _getBaseHeaders();
       final response = await http.post(
         Uri.parse('$_baseUrl/api/login/'),
-        headers: {'Content-Type': 'application/json'},
+        headers: headers,
         body: jsonEncode({'email': email, 'password': password}),
       );
 
@@ -173,6 +187,7 @@ class AuthService {
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove(_keyAccess);
     await prefs.remove(_keyRefresh);
+    await prefs.remove('sessionid_cookie'); // Ensure completely blank guest cart
   }
 
   void _showError(BuildContext context, String message) {

@@ -145,16 +145,20 @@ class OrderItem(models.Model):
 # ---------------------------------------------------------------------------
 
 class Cart(models.Model):
-    customer = models.ForeignKey(Customer, on_delete=models.CASCADE, related_name='cart_items')
+    customer = models.ForeignKey(Customer, on_delete=models.CASCADE, related_name='cart_items', null=True, blank=True)
+    session_key = models.CharField(max_length=40, null=True, blank=True, db_index=True)
     product  = models.ForeignKey(Product, on_delete=models.CASCADE, related_name='cart_entries')
     quantity = models.PositiveIntegerField(default=1)
 
     class Meta:
-        unique_together = ('customer', 'product')
-        indexes = [models.Index(fields=['customer'])]
+        indexes = [
+            models.Index(fields=['customer']),
+            models.Index(fields=['session_key']),
+        ]
 
     def __str__(self):
-        return f'{self.customer} — {self.product.name} x{self.quantity}'
+        owner = self.customer.name if self.customer else f"Guest ({self.session_key})"
+        return f'{owner} — {self.product.name} x{self.quantity}'
 
 
 # ---------------------------------------------------------------------------

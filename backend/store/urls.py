@@ -1,11 +1,12 @@
 from django.urls import path
 from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 from . import views
+from .cart_beforelogin_view import GuestCartView, GuestCartItemView
 
 urlpatterns = [
     # Auth
     path('register/',      views.RegisterView.as_view(),     name='register'),
-    path('login/',         TokenObtainPairView.as_view(),    name='login'),
+    path('login/',         views.CustomTokenObtainPairView.as_view(), name='login'),
     path('token/refresh/', TokenRefreshView.as_view(),       name='token_refresh'),
     path('me/',            views.MeView.as_view(),           name='me'),
 
@@ -15,9 +16,13 @@ urlpatterns = [
     path('products/<int:pk>/stock/',         views.ProductStockView.as_view(),    name='product_stock'),
     path('products/<int:pk>/discount/',      views.ProductDiscountView.as_view(), name='product_discount'),
 
-    # Cart
+    # Cart (Authenticated Only)
     path('cart/',          views.CartView.as_view(),         name='cart'),
     path('cart/<int:pk>/', views.CartItemView.as_view(),     name='cart_item'),
+
+    # Guest Cart (Before Login)
+    path('guest/cart/',          GuestCartView.as_view(),         name='guest_cart'),
+    path('guest/cart/<int:pk>/', GuestCartItemView.as_view(),     name='guest_cart_item'),
 
     # Wishlist
     path('wishlist/',          views.WishlistView.as_view(),     name='wishlist'),
