@@ -47,4 +47,7 @@ urlpatterns = [
     # Sales Manager
     path('invoices/', views.InvoiceView.as_view(),  name='invoice_list'),
     path('revenue/',  views.RevenueView.as_view(),  name='revenue'),
+
+    # Testing Endpoint for Invoices & Emails (SCRUM 54-56)
+    path('test-invoice/', views.test_invoice_email, name='test_invoice'),
 ]
