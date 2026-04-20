@@ -4,6 +4,7 @@ from rest_framework import generics, permissions, status
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework_simplejwt.tokens import RefreshToken
+from rest_framework_simplejwt.views import TokenObtainPairView
 
 from .models import Customer, Product, Cart, Wishlist, Order, OrderItem, Review, Refund, Delivery
 from .serializers import (
@@ -11,6 +12,7 @@ from .serializers import (
     CartSerializer, WishlistSerializer, OrderSerializer, OrderCreateSerializer,
     ReviewSerializer, RefundSerializer, DeliverySerializer,
 )
+from .cart_beforelogin_service import CartBeforeLoginService
 
 
 # ---------------------------------------------------------------------------
@@ -53,11 +55,6 @@ class RegisterView(generics.CreateAPIView):
             'refresh': str(refresh),
         }, status=status.HTTP_201_CREATED)
 
-
-from .cart_beforelogin_service import CartBeforeLoginService
-
-
-from rest_framework_simplejwt.views import TokenObtainPairView
 
 class CustomTokenObtainPairView(TokenObtainPairView):
     """Custom login view to merge the cart after obtaining tokens."""

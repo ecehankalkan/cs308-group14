@@ -151,6 +151,18 @@ class Cart(models.Model):
     quantity = models.PositiveIntegerField(default=1)
 
     class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=['customer', 'product'],
+                condition=models.Q(customer__isnull=False),
+                name='unique_customer_product'
+            ),
+            models.UniqueConstraint(
+                fields=['session_key', 'product'],
+                condition=models.Q(session_key__isnull=False),
+                name='unique_session_product'
+            ),
+        ]
         indexes = [
             models.Index(fields=['customer']),
             models.Index(fields=['session_key']),
