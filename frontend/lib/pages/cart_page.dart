@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../services/cart_service.dart';
+import 'payment_page.dart';
 
 const _dark = Color(0xFF8D7B68);
 const _medium = Color(0xFFA4907C);
@@ -115,7 +116,11 @@ class _CartPageState extends State<CartPage> {
       _showPaymentConfirmationWarning = false;
     });
 
-    _showCenteredRedSnackBar('Payment flow will be connected soon.');
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (context) => PaymentPage(totalAmount: _cartTotal),
+      ),
+    );
   }
 
   @override
