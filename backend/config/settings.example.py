@@ -1,6 +1,11 @@
 from pathlib import Path
+import os
+from dotenv import load_dotenv
 
 BASE_DIR = Path(__file__).resolve().parent.parent
+
+# Load environment variables from .env file
+load_dotenv(BASE_DIR / '.env')
 
 SECRET_KEY = 'change-this-before-deploying'
 
@@ -54,15 +59,15 @@ TEMPLATES = [
 
 WSGI_APPLICATION = 'config.wsgi.application'
 
-# PostgreSQL database — update NAME, USER, PASSWORD to match your local setup
+# PostgreSQL database — loaded from .env mapping to your Firebase Cloud SQL setup
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.postgresql',
-        'NAME': 'inkcloud_db',
-        'USER': 'postgres',
-        'PASSWORD': 'YOUR_POSTGRES_PASSWORD_HERE',
-        'HOST': 'localhost',
-        'PORT': '5432',
+        'NAME': os.environ.get('DB_NAME', 'postgres'),
+        'USER': os.environ.get('DB_USER', 'postgres'),
+        'PASSWORD': os.environ.get('DB_PASSWORD', ''),
+        'HOST': os.environ.get('DB_HOST', 'localhost'),
+        'PORT': os.environ.get('DB_PORT', '5432'),
     }
 }
 
@@ -100,3 +105,8 @@ USE_TZ = True
 
 STATIC_URL = 'static/'
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+
+# Email Configuration
+# Using console backend for local testing, prints emails to terminal
+EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
+
