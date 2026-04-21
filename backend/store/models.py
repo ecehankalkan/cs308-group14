@@ -98,6 +98,42 @@ class Product(models.Model):
 
 
 # ---------------------------------------------------------------------------
+# Order
+# ---------------------------------------------------------------------------
+
+class Order(models.Model):
+    class Status(models.TextChoices):
+        PROCESSING = 'processing', 'Processing'
+        IN_TRANSIT = 'in-transit', 'In Transit'
+        DELIVERED  = 'delivered',  'Delivered'
+
+    customer         = models.ForeignKey(Customer, on_delete=models.PROTECT, related_name='orders')
+    total_price      = models.DecimalField(max_digits=12, decimal_places=2, validators=[MinValueValidator(0)])
+    status           = models.CharField(max_length=20, choices=Status.choices, default=Status.PROCESSING, db_index=True)
+    delivery_address = models.TextField()
+    created_at       = models.DateTimeField(auto_now_add=True, db_index=True)
+
+    class Meta:
+        indexes = [models.Index(fields=['customer', 'status'])]
+
+    def __str__(self):
+        return f'Order #{self.pk} — {self.customer.email}'
+
+
+class OrderItem(models.Model):
+    order             = models.ForeignKey(Order, on_delete=models.CASCADE, related_name='items')
+    product           = models.ForeignKey(Product, on_delete=models.PROTECT, related_name='order_items')
+    quantity          = models.PositiveIntegerField(default=1)
+    price_at_purchase = models.DecimalField(max_digits=10, decimal_places=2, validators=[MinValueValidator(0)])
+
+    class Meta:
+        indexes = [models.Index(fields=['order', 'product'])]
+
+    def __str__(self):
+        return f'{self.product.name} x{self.quantity} (Order #{self.order_id})'
+
+
+# ---------------------------------------------------------------------------
 # Cart
 # ---------------------------------------------------------------------------
 

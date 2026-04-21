@@ -8,6 +8,8 @@ urlpatterns = [
     path('login/',         views.CustomTokenObtainPairView.as_view(), name='login'),
     path('token/refresh/', TokenRefreshView.as_view(),       name='token_refresh'),
     path('me/',            views.MeView.as_view(),           name='me'),
+    path('profile/',       views.ProfileView.as_view(),      name='profile'),
+    path('orders/',        views.OrderListView.as_view(),    name='orders'),
 
     # Products (public list/detail + manager write operations)
     path('products/',                        views.ProductListView.as_view(),     name='product_list'),

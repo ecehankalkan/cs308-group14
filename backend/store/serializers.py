@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import Customer, Product, Cart
+from .models import Customer, Product, Cart, Order, OrderItem
 
 
 class RegisterSerializer(serializers.ModelSerializer):
@@ -19,6 +19,12 @@ class CustomerSerializer(serializers.ModelSerializer):
         fields = ['id', 'email', 'name', 'tax_id', 'home_address', 'role', 'created_at']
 
 
+class ProfileUpdateSerializer(serializers.ModelSerializer):
+    class Meta:
+        model  = Customer
+        fields = ['home_address']
+
+
 class ProductSerializer(serializers.ModelSerializer):
     in_stock = serializers.SerializerMethodField()
 
@@ -30,6 +36,25 @@ class ProductSerializer(serializers.ModelSerializer):
 
     def get_in_stock(self, obj):
         return obj.stock_quantity > 0
+
+
+class OrderItemSerializer(serializers.ModelSerializer):
+    product_id   = serializers.IntegerField(source='product.id', read_only=True)
+    product_name = serializers.CharField(source='product.name', read_only=True)
+    unit_price   = serializers.DecimalField(source='price_at_purchase', max_digits=10, decimal_places=2, read_only=True)
+
+    class Meta:
+        model  = OrderItem
+        fields = ['product_id', 'product_name', 'quantity', 'unit_price']
+
+
+class OrderSerializer(serializers.ModelSerializer):
+    items        = OrderItemSerializer(many=True, read_only=True)
+    total_amount = serializers.DecimalField(source='total_price', max_digits=12, decimal_places=2, read_only=True)
+
+    class Meta:
+        model  = Order
+        fields = ['id', 'created_at', 'total_amount', 'delivery_address', 'status', 'items']
 
 
 class CartSerializer(serializers.ModelSerializer):

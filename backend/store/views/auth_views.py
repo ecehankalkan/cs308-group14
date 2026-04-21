@@ -5,7 +5,7 @@ from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework_simplejwt.views import TokenObtainPairView
 
 from ..models import Customer
-from ..serializers import RegisterSerializer, CustomerSerializer
+from ..serializers import RegisterSerializer, CustomerSerializer, ProfileUpdateSerializer
 from ..services.cart_service import CartBeforeLoginService
 
 
@@ -47,4 +47,20 @@ class MeView(APIView):
     permission_classes = [permissions.IsAuthenticated]
 
     def get(self, request):
+        return Response(CustomerSerializer(request.user).data)
+
+
+class ProfileView(APIView):
+    """GET /api/profile/  —  PATCH /api/profile/"""
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request):
+        return Response(CustomerSerializer(request.user).data)
+
+    def patch(self, request):
+        serializer = ProfileUpdateSerializer(
+            request.user, data=request.data, partial=True
+        )
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
         return Response(CustomerSerializer(request.user).data)
