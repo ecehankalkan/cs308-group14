@@ -130,6 +130,12 @@ class HomePage extends StatelessWidget {
                         ),
                       ),
                       PopupMenuItem(
+                        child: const Text('My Account',
+                            style: TextStyle(color: _dark)),
+                        onTap: () =>
+                            Navigator.pushNamed(context, '/profile'),
+                      ),
+                      PopupMenuItem(
                         child: const Text('Logout',
                             style: TextStyle(color: Colors.red)),
                         onTap: () async => await AuthService().signOut(),
