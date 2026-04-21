@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import Customer, Product, Cart, Wishlist, Order, OrderItem, Review, Refund, Delivery
+from .models import Customer, Product, Cart
 
 
 class RegisterSerializer(serializers.ModelSerializer):
@@ -41,62 +41,3 @@ class CartSerializer(serializers.ModelSerializer):
     class Meta:
         model  = Cart
         fields = ['id', 'product', 'product_id', 'quantity']
-
-
-class WishlistSerializer(serializers.ModelSerializer):
-    product = ProductSerializer(read_only=True)
-    product_id = serializers.PrimaryKeyRelatedField(
-        queryset=Product.objects.all(), source='product', write_only=True
-    )
-
-    class Meta:
-        model  = Wishlist
-        fields = ['id', 'product', 'product_id']
-
-
-class OrderItemSerializer(serializers.ModelSerializer):
-    product = ProductSerializer(read_only=True)
-
-    class Meta:
-        model  = OrderItem
-        fields = ['id', 'product', 'quantity', 'price_at_purchase']
-
-
-class OrderSerializer(serializers.ModelSerializer):
-    items = OrderItemSerializer(many=True, read_only=True)
-
-    class Meta:
-        model  = Order
-        fields = ['id', 'total_price', 'status', 'delivery_address', 'created_at', 'items']
-
-
-# Used only for validating POST /api/orders/ input
-class OrderItemInputSerializer(serializers.Serializer):
-    product_id = serializers.IntegerField()
-    quantity   = serializers.IntegerField(min_value=1)
-
-
-class OrderCreateSerializer(serializers.Serializer):
-    delivery_address = serializers.CharField()
-    items            = OrderItemInputSerializer(many=True, min_length=1)
-
-
-class ReviewSerializer(serializers.ModelSerializer):
-    class Meta:
-        model  = Review
-        fields = ['id', 'product', 'rating', 'comment', 'approved', 'created_at']
-        read_only_fields = ['approved']
-
-
-class RefundSerializer(serializers.ModelSerializer):
-    class Meta:
-        model  = Refund
-        fields = ['id', 'order_item', 'status', 'refund_amount', 'created_at']
-        read_only_fields = ['status']
-
-
-class DeliverySerializer(serializers.ModelSerializer):
-    class Meta:
-        model  = Delivery
-        fields = ['id', 'order', 'customer', 'product', 'quantity', 'total_price',
-                  'delivery_address', 'is_completed']

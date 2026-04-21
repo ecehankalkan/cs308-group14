@@ -1,7 +1,6 @@
 from django.urls import path
 from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 from . import views
-from .cart_beforelogin_view import GuestCartView, GuestCartItemView
 
 urlpatterns = [
     # Auth
@@ -21,32 +20,8 @@ urlpatterns = [
     path('cart/<int:pk>/', views.CartItemView.as_view(),     name='cart_item'),
 
     # Guest Cart (Before Login)
-    path('guest/cart/',          GuestCartView.as_view(),         name='guest_cart'),
-    path('guest/cart/<int:pk>/', GuestCartItemView.as_view(),     name='guest_cart_item'),
-
-    # Wishlist
-    path('wishlist/',          views.WishlistView.as_view(),     name='wishlist'),
-    path('wishlist/<int:pk>/', views.WishlistItemView.as_view(), name='wishlist_item'),
-
-    # Orders
-    path('orders/',          views.OrderListView.as_view(),   name='order_list'),
-    path('orders/<int:pk>/', views.OrderDetailView.as_view(), name='order_detail'),
-
-    # Reviews
-    path('reviews/',                        views.ReviewListView.as_view(),       name='review_list'),
-    path('reviews/<int:pk>/approve/',       views.ReviewApproveView.as_view(),    name='review_approve'),
-    path('reviews/<int:pk>/disapprove/',    views.ReviewDisapproveView.as_view(), name='review_disapprove'),
-
-    # Refunds
-    path('refunds/', views.RefundView.as_view(), name='refund_list'),
-
-    # Deliveries
-    path('deliveries/',              views.DeliveryView.as_view(),         name='delivery_list'),
-    path('deliveries/<int:pk>/complete/', views.DeliveryCompleteView.as_view(), name='delivery_complete'),
-
-    # Sales Manager
-    path('invoices/', views.InvoiceView.as_view(),  name='invoice_list'),
-    path('revenue/',  views.RevenueView.as_view(),  name='revenue'),
+    path('guest/cart/',          views.GuestCartView.as_view(),         name='guest_cart'),
+    path('guest/cart/<int:pk>/', views.GuestCartItemView.as_view(),     name='guest_cart_item'),
 
     # Testing Endpoint for Invoices & Emails (SCRUM 54-56)
     path('test-invoice/', views.test_invoice_email, name='test_invoice'),

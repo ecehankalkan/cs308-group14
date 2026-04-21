@@ -1,4 +1,4 @@
-from .models import Cart
+from ..models import Cart
 
 class CartBeforeLoginService:
     """Service class specifically for handling cart actions before and during login."""

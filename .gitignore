@@ -23,6 +23,9 @@ env/
 backend/staticfiles/
 backend/media/
 
+# Management commands (seed scripts)
+backend/store/management/
+
 # Migrations (optional — remove these lines if your team wants to track migrations)
 # backend/store/migrations/
 
