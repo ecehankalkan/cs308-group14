@@ -189,6 +189,12 @@ class _HomePageState extends State<HomePage> {
                         ),
                       ),
                       PopupMenuItem(
+                        child: const Text('Profile',
+                            style: TextStyle(color: _dark)),
+                        onTap: () =>
+                            Navigator.pushNamed(context, '/profile'),
+                      ),
+                      PopupMenuItem(
                         child: const Text('Logout',
                             style: TextStyle(color: Colors.red)),
                         onTap: () async => await AuthService().signOut(),
