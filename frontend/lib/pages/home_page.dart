@@ -3,6 +3,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import '../services/auth_service.dart';
 import '../services/cart_service.dart';
 import '../models/product.dart';
+import 'product_page.dart';
 
 const _dark = Color(0xFF8D7B68);
 const _medium = Color(0xFFA4907C);
@@ -484,121 +485,135 @@ class _ProductCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
+    return SizedBox(
       width: 220,
-      decoration: BoxDecoration(
-        color: _offWhite,
+      child: InkWell(
         borderRadius: BorderRadius.circular(8),
-        border: Border.all(
-            color: _categoryColors[product.category]!, width: 1.5),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Book cover placeholder
-          Container(
-            height: 180,
-            decoration: const BoxDecoration(
-              color: _taupe,
-              borderRadius: BorderRadius.vertical(top: Radius.circular(7)),
+        onTap: () {
+          Navigator.of(context).push(
+            MaterialPageRoute(
+              builder: (_) => ProductPage(product: product),
             ),
-            child: const Center(
-              child: Icon(Icons.menu_book, color: _offWhite, size: 64),
-            ),
+          );
+        },
+        child: Container(
+          decoration: BoxDecoration(
+            color: _offWhite,
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(
+                color: _categoryColors[product.category]!, width: 1.5),
           ),
-          Padding(
-            padding: const EdgeInsets.all(14),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  product.name,
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    color: _categoryColors[product.category],
-                    fontSize: 14,
-                    fontWeight: FontWeight.w700,
-                    height: 1.3,
-                  ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Book cover placeholder
+              Container(
+                height: 180,
+                decoration: const BoxDecoration(
+                  color: _taupe,
+                  borderRadius: BorderRadius.vertical(top: Radius.circular(7)),
                 ),
-                const SizedBox(height: 6),
-                Text(
-                  product.description,
-                  maxLines: 3,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                      color: _medium, fontSize: 12, height: 1.4),
+                child: const Center(
+                  child: Icon(Icons.menu_book, color: _offWhite, size: 64),
                 ),
-                const SizedBox(height: 12),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              ),
+              Padding(
+                padding: const EdgeInsets.all(14),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      '\$${product.price.toStringAsFixed(2)}',
-                      style: const TextStyle(
-                        color: _dark,
-                        fontSize: 16,
-                        fontWeight: FontWeight.w800,
+                      product.name,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        color: _categoryColors[product.category],
+                        fontSize: 14,
+                        fontWeight: FontWeight.w700,
+                        height: 1.3,
                       ),
                     ),
+                    const SizedBox(height: 6),
                     Text(
-                      product.stockQuantity > 0
-                          ? 'In stock'
-                          : 'Out of stock',
-                      style: TextStyle(
-                        color: product.stockQuantity > 0
-                            ? Colors.green.shade700
-                            : Colors.red.shade400,
-                        fontSize: 11,
-                        fontWeight: FontWeight.w600,
+                      product.description,
+                      maxLines: 3,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                          color: _medium, fontSize: 12, height: 1.4),
+                    ),
+                    const SizedBox(height: 12),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          '\$${product.price.toStringAsFixed(2)}',
+                          style: const TextStyle(
+                            color: _dark,
+                            fontSize: 16,
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
+                        Text(
+                          product.stockQuantity > 0
+                              ? 'In stock'
+                              : 'Out of stock',
+                          style: TextStyle(
+                            color: product.stockQuantity > 0
+                                ? Colors.green.shade700
+                                : Colors.red.shade400,
+                            fontSize: 11,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+                    SizedBox(
+                      width: double.infinity,
+                      child: ElevatedButton(
+                        onPressed: product.stockQuantity > 0
+                            ? () {
+                                // Prevent card tap when pressing CTA.
+                                ScaffoldMessenger.of(context).hideCurrentSnackBar();
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(
+                                        content: Text('${product.name} added to cart!'),
+                                        backgroundColor: Colors.green,
+                                        duration: const Duration(seconds: 2)));
+
+                                // Fire and forget, correctly incrementing quantity.
+                                CartService()
+                                  .addOrIncrementItem(product.id)
+                                  .catchError((e) {
+                                  if (context.mounted) {
+                                    ScaffoldMessenger.of(context).hideCurrentSnackBar();
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                        SnackBar(
+                                            content: Text('Failed to add ${product.name}'),
+                                            backgroundColor: Colors.red,
+                                            duration: const Duration(seconds: 2)));
+                                  }
+                                });
+                              }
+                            : null,
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: _dark,
+                          foregroundColor: _offWhite,
+                          disabledBackgroundColor: _taupe,
+                          padding: const EdgeInsets.symmetric(vertical: 10),
+                          shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(4)),
+                        ),
+                        child: const Text('Add to Cart',
+                            style: TextStyle(fontSize: 13)),
                       ),
                     ),
                   ],
                 ),
-                const SizedBox(height: 12),
-                SizedBox(
-                  width: double.infinity,
-                  child: ElevatedButton(
-                    onPressed: product.stockQuantity > 0
-                        ? () {
-                            // Instant UI feedback
-                            ScaffoldMessenger.of(context).hideCurrentSnackBar();
-                            ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(
-                                    content: Text('${product.name} added to cart!'),
-                                    backgroundColor: Colors.green,
-                                    duration: const Duration(seconds: 2)));
-
-                            // Fire and forget, correctly incrementing quantity
-                            CartService().addOrIncrementItem(product.id).catchError((e) {
-                              if (context.mounted) {
-                                ScaffoldMessenger.of(context).hideCurrentSnackBar();
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                    SnackBar(
-                                        content: Text('Failed to add ${product.name}'),
-                                        backgroundColor: Colors.red,
-                                        duration: const Duration(seconds: 2)));
-                              }
-                            });
-                          }
-                        : null,
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: _dark,
-                      foregroundColor: _offWhite,
-                      disabledBackgroundColor: _taupe,
-                      padding: const EdgeInsets.symmetric(vertical: 10),
-                      shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(4)),
-                    ),
-                    child: const Text('Add to Cart',
-                        style: TextStyle(fontSize: 13)),
-                  ),
-                ),
-              ],
-            ),
+              ),
+            ],
           ),
-        ],
+        ),
       ),
     );
   }

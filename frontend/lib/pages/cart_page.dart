@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../services/cart_service.dart';
 import 'payment_page.dart';
+import 'product_page.dart';
 
 const _dark = Color(0xFF8D7B68);
 const _medium = Color(0xFFA4907C);
@@ -236,14 +237,11 @@ class _CartPageState extends State<CartPage> {
 
               return GestureDetector(
                 onTap: () {
-                  // This is the dynamic routing logic!
-                  // It creates a new page and passes the specific product ID to it.
                   Navigator.push(
                     context,
                     MaterialPageRoute(
-                      builder: (context) => DummyProductPage(
-                        productId: product.id.toString(),
-                        productName: product.name,
+                      builder: (context) => ProductPage(
+                        product: product,
                       ),
                     ),
                   );
@@ -548,48 +546,6 @@ class _QuantityButton extends StatelessWidget {
           ),
         ),
         child: Icon(icon, size: 18),
-      ),
-    );
-  }
-}
-
-// TODO: Replace this with your teammate's actual Product Page later!
-class DummyProductPage extends StatelessWidget {
-  final String productId;
-  final String productName;
-
-  const DummyProductPage({
-    super.key,
-    required this.productId,
-    required this.productName,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: _offWhite,
-      appBar: AppBar(
-        backgroundColor: _dark,
-        foregroundColor: _offWhite,
-        title: Text(productName),
-      ),
-      body: Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            const Icon(Icons.construction, size: 60, color: _medium),
-            const SizedBox(height: 20),
-            Text(
-              'Item Page Placeholder',
-              style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: _dark),
-            ),
-            const SizedBox(height: 10),
-            Text(
-              'Dynamic Product ID: $productId',
-              style: const TextStyle(fontSize: 16, color: _medium),
-            ),
-          ],
-        ),
       ),
     );
   }
