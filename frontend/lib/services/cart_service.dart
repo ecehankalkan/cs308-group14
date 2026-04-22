@@ -46,7 +46,14 @@ class CartService {
   // We keep track of items locally so we can find cartItemId by productId easily
   List<CartItem> _currentItems = [];
 
-  Future<bool> _isLoggedIn() async {
+  // Used to prevent race conditions when navigating to the cart immediately after adding an item
+  static Future<void> _pendingAdd = Future.value();
+
+  Future<void> waitForPending() async {
+    try { await _pendingAdd; } catch (_) {}
+  }
+
+  Future<bool> isLoggedIn() async {
     final prefs = await SharedPreferences.getInstance();
     final token = prefs.getString('access_token');
     return token != null && token.isNotEmpty;
@@ -71,7 +78,7 @@ class CartService {
   }
 
   Future<void> _updateCookie(http.Response response) async {
-    if (await _isLoggedIn()) return; // Don't track guest session ID once logged in
+    if (await isLoggedIn()) return; // Don't track guest session ID once logged in
     
     final sessionId = response.headers['x-session-id'];
     if (sessionId != null && sessionId.isNotEmpty) {
@@ -97,7 +104,7 @@ class CartService {
   Future<List<CartItem>> fetchCartItems() async {
     try {
       final headers = await _getHeaders();
-      final endpoint = await _isLoggedIn() ? '$_baseUrl/api/cart/' : '$_baseUrl/api/guest/cart/';
+      final endpoint = await isLoggedIn() ? '$_baseUrl/api/cart/' : '$_baseUrl/api/guest/cart/';
       
       final response = await http.get(Uri.parse(endpoint), headers: headers);
       await _updateCookie(response);
@@ -124,7 +131,7 @@ class CartService {
     required int requestedQuantity,
   }) async {
     final headers = await _getHeaders();
-    final isAuth = await _isLoggedIn();
+    final isAuth = await isLoggedIn();
     final baseEndpoint = isAuth ? '$_baseUrl/api/cart/' : '$_baseUrl/api/guest/cart/';
     
     final existingItemIndex = _currentItems.indexWhere((item) => item.product.id == productId);
@@ -163,5 +170,24 @@ class CartService {
 
     final newItems = await fetchCartItems();
     return CartUpdateResult(items: newItems, adjustedToStock: false);
+  }
+
+  Future<void> addOrIncrementItem(String productId) {
+    // Chain onto the existing pending add to guarantee serial execution
+    final future = _pendingAdd.then((_) async {
+      if (_currentItems.isEmpty) {
+        await fetchCartItems();
+      }
+      final existingItemIndex = _currentItems.indexWhere((item) => item.product.id == productId);
+      if (existingItemIndex != -1) {
+        await updateQuantity(productId: productId, requestedQuantity: _currentItems[existingItemIndex].quantity + 1);
+      } else {
+        await updateQuantity(productId: productId, requestedQuantity: 1);
+      }
+    });
+
+    // We catch errors on the chain so the lock doesn't stay permanently broken
+    _pendingAdd = future.catchError((_) {});
+    return future; // Return original future so UI can catch specific errors
   }
 }

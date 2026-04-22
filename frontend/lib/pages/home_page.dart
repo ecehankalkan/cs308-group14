@@ -555,27 +555,26 @@ class _ProductCard extends StatelessWidget {
                   width: double.infinity,
                   child: ElevatedButton(
                     onPressed: product.stockQuantity > 0
-                        ? () async {
-                            try {
-                              await CartService().updateQuantity(
-                                  productId: product.id,
-                                  requestedQuantity: 1);
+                        ? () {
+                            // Instant UI feedback
+                            ScaffoldMessenger.of(context).hideCurrentSnackBar();
+                            ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                    content: Text('${product.name} added to cart!'),
+                                    backgroundColor: Colors.green,
+                                    duration: const Duration(seconds: 2)));
+
+                            // Fire and forget, correctly incrementing quantity
+                            CartService().addOrIncrementItem(product.id).catchError((e) {
                               if (context.mounted) {
+                                ScaffoldMessenger.of(context).hideCurrentSnackBar();
                                 ScaffoldMessenger.of(context).showSnackBar(
                                     SnackBar(
-                                        content: Text(
-                                            '${product.name} added to cart!'),
-                                        backgroundColor: Colors.green));
+                                        content: Text('Failed to add ${product.name}'),
+                                        backgroundColor: Colors.red,
+                                        duration: const Duration(seconds: 2)));
                               }
-                            } catch (e) {
-                              if (context.mounted) {
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                    SnackBar(
-                                        content: Text(
-                                            'Failed to add ${product.name}'),
-                                        backgroundColor: Colors.red));
-                              }
-                            }
+                            });
                           }
                         : null,
                     style: ElevatedButton.styleFrom(
