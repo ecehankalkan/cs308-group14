@@ -45,7 +45,8 @@ class PaymentCard {
     this.isDefault = false,
   });
 
-  String get maskedNumber => '**** **** **** ${cardNumber.substring(cardNumber.length - 4)}';
+  String get maskedNumber =>
+      '**** **** **** ${cardNumber.substring(cardNumber.length - 4)}';
 }
 
 class PaymentPage extends StatefulWidget {
@@ -58,11 +59,11 @@ class PaymentPage extends StatefulWidget {
 }
 
 class _PaymentPageState extends State<PaymentPage> {
-  List<DeliveryAddress> _savedAddresses = [];
+  final List<DeliveryAddress> _savedAddresses = [];
   String? _selectedAddressId;
   bool _showAddAddress = false;
 
-  List<PaymentCard> _savedCards = [];
+  final List<PaymentCard> _savedCards = [];
   String? _selectedCardId;
   bool _showAddCard = false;
 
@@ -141,9 +142,7 @@ class _PaymentPageState extends State<PaymentPage> {
     }
 
     Navigator.of(context).pushReplacement(
-      MaterialPageRoute(
-        builder: (context) => const PaymentSuccessPage(),
-      ),
+      MaterialPageRoute(builder: (context) => const PaymentSuccessPage()),
     );
   }
 
@@ -183,8 +182,7 @@ class _PaymentPageState extends State<PaymentPage> {
               _buildAddAddressForm(),
               const SizedBox(height: 20),
             ],
-            if (!_showAddAddress)
-              _buildAddAddressButton(),
+            if (!_showAddAddress) _buildAddAddressButton(),
             const SizedBox(height: 32),
             const Divider(color: _taupe, thickness: 1),
             const SizedBox(height: 32),
@@ -196,8 +194,7 @@ class _PaymentPageState extends State<PaymentPage> {
               _buildAddCardForm(),
               const SizedBox(height: 20),
             ],
-            if (!_showAddCard)
-              _buildAddCardButton(),
+            if (!_showAddCard) _buildAddCardButton(),
             const SizedBox(height: 24),
             _buildPayButton(),
           ],
@@ -251,10 +248,12 @@ class _PaymentPageState extends State<PaymentPage> {
           ),
         ),
         const SizedBox(height: 12),
-        ..._savedAddresses.map((address) => Padding(
-              padding: const EdgeInsets.only(bottom: 10),
-              child: _buildAddressTile(address),
-            )),
+        ..._savedAddresses.map(
+          (address) => Padding(
+            padding: const EdgeInsets.only(bottom: 10),
+            child: _buildAddressTile(address),
+          ),
+        ),
       ],
     );
   }
@@ -320,9 +319,7 @@ class _PaymentPageState extends State<PaymentPage> {
         padding: const EdgeInsets.symmetric(vertical: 16),
         side: BorderSide(color: _dark, width: 1.5),
         foregroundColor: _dark,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(10),
-        ),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
       ),
       icon: const Icon(Icons.add, size: 20),
       label: const Text(
@@ -461,10 +458,7 @@ class _PaymentPageState extends State<PaymentPage> {
                   const Expanded(
                     child: Text(
                       'Save this address for future orders',
-                      style: TextStyle(
-                        color: _dark,
-                        fontSize: 14,
-                      ),
+                      style: TextStyle(color: _dark, fontSize: 14),
                     ),
                   ),
                 ],
@@ -489,10 +483,12 @@ class _PaymentPageState extends State<PaymentPage> {
           ),
         ),
         const SizedBox(height: 12),
-        ..._savedCards.map((card) => Padding(
-              padding: const EdgeInsets.only(bottom: 10),
-              child: _buildCardTile(card),
-            )),
+        ..._savedCards.map(
+          (card) => Padding(
+            padding: const EdgeInsets.only(bottom: 10),
+            child: _buildCardTile(card),
+          ),
+        ),
       ],
     );
   }
@@ -534,18 +530,12 @@ class _PaymentPageState extends State<PaymentPage> {
                   const SizedBox(height: 4),
                   Text(
                     card.maskedNumber,
-                    style: const TextStyle(
-                      color: _medium,
-                      fontSize: 14,
-                    ),
+                    style: const TextStyle(color: _medium, fontSize: 14),
                   ),
                   const SizedBox(height: 2),
                   Text(
                     'Expires ${card.expiryDate}',
-                    style: const TextStyle(
-                      color: _medium,
-                      fontSize: 12,
-                    ),
+                    style: const TextStyle(color: _medium, fontSize: 12),
                   ),
                 ],
               ),
@@ -565,9 +555,7 @@ class _PaymentPageState extends State<PaymentPage> {
         padding: const EdgeInsets.symmetric(vertical: 16),
         side: BorderSide(color: _dark, width: 1.5),
         foregroundColor: _dark,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(10),
-        ),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
       ),
       icon: const Icon(Icons.add, size: 20),
       label: const Text(
@@ -670,24 +658,25 @@ class _PaymentPageState extends State<PaymentPage> {
                       }
                       final parts = value.split('/');
                       if (parts.length != 2) return 'Invalid format';
-                      
+
                       final month = int.tryParse(parts[0]);
                       final year = int.tryParse(parts[1]);
-                      
+
                       if (month == null || month < 1 || month > 12) {
                         return 'Invalid month';
                       }
-                      
+
                       if (year == null) return 'Invalid year';
-                      
+
                       final now = DateTime.now();
                       final currentYear = now.year % 100;
                       final currentMonth = now.month;
-                      
-                      if (year < currentYear || (year == currentYear && month < currentMonth)) {
+
+                      if (year < currentYear ||
+                          (year == currentYear && month < currentMonth)) {
                         return 'Card expired';
                       }
-                      
+
                       return null;
                     },
                   ),
@@ -737,10 +726,7 @@ class _PaymentPageState extends State<PaymentPage> {
                   const Expanded(
                     child: Text(
                       'Save this card for future purchases',
-                      style: TextStyle(
-                        color: _dark,
-                        fontSize: 14,
-                      ),
+                      style: TextStyle(color: _dark, fontSize: 14),
                     ),
                   ),
                 ],
@@ -787,7 +773,10 @@ class _PaymentPageState extends State<PaymentPage> {
             prefixIcon: Icon(icon, size: 20, color: _medium),
             filled: true,
             fillColor: _cream.withOpacity(0.3),
-            contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+            contentPadding: const EdgeInsets.symmetric(
+              horizontal: 14,
+              vertical: 12,
+            ),
             border: OutlineInputBorder(
               borderRadius: BorderRadius.circular(8),
               borderSide: BorderSide(color: _taupe),

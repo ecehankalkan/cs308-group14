@@ -18,10 +18,19 @@ class CartPage extends StatefulWidget {
 class _CartPageState extends State<CartPage> {
   final CartService _cartService = CartService();
   bool _isLoading = true;
-  bool _isUpdating = false;
   bool _isPaymentConfirmed = false;
   bool _showPaymentConfirmationWarning = false;
   List<CartItem> _items = [];
+  List<CartItem> _initialItems = [];
+  final Map<int, TextEditingController> _stepControllers = {};
+
+  @override
+  void dispose() {
+    for (var controller in _stepControllers.values) {
+      controller.dispose();
+    }
+    super.dispose();
+  }
 
   @override
   void initState() {
@@ -30,41 +39,43 @@ class _CartPageState extends State<CartPage> {
   }
 
   Future<void> _loadCart() async {
+    await _cartService.waitForPending();
     final items = await _cartService.fetchCartItems();
     if (!mounted) {
       return;
     }
     setState(() {
-      _items = items;
+      _items = List.from(items);
+      _initialItems = List.from(items);
       _isLoading = false;
     });
   }
 
-  Future<void> _changeQuantity(CartItem item, int nextQuantity) async {
-    if (_isUpdating) {
-      return;
-    }
-
+  void _changeQuantity(CartItem item, int nextQuantity) {
     setState(() {
-      _isUpdating = true;
+      if (nextQuantity <= 0) {
+        _items.removeWhere((i) => i.cartItemId == item.cartItemId);
+      } else {
+        final index = _items.indexWhere((i) => i.cartItemId == item.cartItemId);
+        if (index != -1) {
+          _items[index] = _items[index].copyWith(quantity: nextQuantity);
+        }
+      }
     });
+  }
 
-    final result = await _cartService.updateQuantity(
-      productId: item.product.id,
-      requestedQuantity: nextQuantity,
-    );
-
-    if (!mounted) {
-      return;
+  Future<void> _syncCartWithBackend() async {
+    setState(() => _isLoading = true);
+    for (final initialItem in _initialItems) {
+      final currentMatch = _items.where((i) => i.cartItemId == initialItem.cartItemId).firstOrNull;
+      if (currentMatch == null) {
+        try { await _cartService.updateQuantity(productId: initialItem.product.id, requestedQuantity: 0); } catch (_) {}
+      } else if (currentMatch.quantity != initialItem.quantity) {
+        try { await _cartService.updateQuantity(productId: initialItem.product.id, requestedQuantity: currentMatch.quantity); } catch (_) {}
+      }
     }
-
-    setState(() {
-      _items = result.items;
-      _isUpdating = false;
-    });
-
-    if (result.adjustedToStock) {
-      _showCenteredRedSnackBar('Quantity adjusted to available stock.');
+    if (mounted) {
+      setState(() => _isLoading = false);
     }
   }
 
@@ -104,7 +115,45 @@ class _CartPageState extends State<CartPage> {
       );
   }
 
-  void _handlePaymentPress() {
+  Future<void> _handlePaymentPress() async {
+    final isAuthed = await _cartService.isLoggedIn();
+    if (!isAuthed) {
+      if (!mounted) return;
+      showDialog(
+        context: context,
+        builder: (BuildContext context) {
+          return AlertDialog(
+            backgroundColor: _cream,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            title: const Text('Account Required', style: TextStyle(color: _dark, fontWeight: FontWeight.w800)),
+            content: const Text('Please login or create a new account to proceed to checkout.', style: TextStyle(color: _dark)),
+            actions: [
+              TextButton(
+                onPressed: () {
+                  Navigator.pop(context);
+                  Navigator.pushNamed(context, '/login');
+                },
+                child: const Text('Login', style: TextStyle(color: _dark, fontWeight: FontWeight.w700)),
+              ),
+              ElevatedButton(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: _dark,
+                  foregroundColor: _offWhite,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+                ),
+                onPressed: () {
+                  Navigator.pop(context);
+                  Navigator.pushNamed(context, '/signup');
+                },
+                child: const Text('Sign Up'),
+              ),
+            ],
+          );
+        },
+      );
+      return;
+    }
+
     if (!_isPaymentConfirmed) {
       setState(() {
         _showPaymentConfirmationWarning = true;
@@ -116,6 +165,9 @@ class _CartPageState extends State<CartPage> {
       _showPaymentConfirmationWarning = false;
     });
 
+    await _syncCartWithBackend();
+    if (!mounted) return;
+
     Navigator.of(context).push(
       MaterialPageRoute(
         builder: (context) => PaymentPage(totalAmount: _cartTotal),
@@ -125,15 +177,25 @@ class _CartPageState extends State<CartPage> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: _offWhite,
-      appBar: AppBar(
-        backgroundColor: _dark,
-        elevation: 0,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: _offWhite),
-          onPressed: () => Navigator.pop(context),
-        ),
+    return PopScope(
+      canPop: false,
+      onPopInvoked: (didPop) async {
+        if (didPop) return;
+        await _syncCartWithBackend();
+        if (context.mounted) Navigator.pop(context);
+      },
+      child: Scaffold(
+        backgroundColor: _offWhite,
+        appBar: AppBar(
+          backgroundColor: _dark,
+          elevation: 0,
+          leading: IconButton(
+            icon: const Icon(Icons.arrow_back, color: _offWhite),
+            onPressed: () async {
+              await _syncCartWithBackend();
+              if (context.mounted) Navigator.pop(context);
+            },
+          ),
         title: const Text(
           'Your Cart',
           style: TextStyle(
@@ -151,6 +213,7 @@ class _CartPageState extends State<CartPage> {
           : _items.isEmpty
               ? _buildEmptyState(context)
               : _buildCartContent(context),
+      ),
     );
   }
 
@@ -166,24 +229,76 @@ class _CartPageState extends State<CartPage> {
               final item = _items[index];
               final product = item.product;
 
-              return Container(
-                decoration: BoxDecoration(
-                  color: _cream,
-                  borderRadius: BorderRadius.circular(10),
-                  border: Border.all(color: _taupe),
-                ),
+              if (!_stepControllers.containsKey(item.cartItemId)) {
+                _stepControllers[item.cartItemId] = TextEditingController();
+              }
+              final controller = _stepControllers[item.cartItemId]!;
+
+              return GestureDetector(
+                onTap: () {
+                  // This is the dynamic routing logic!
+                  // It creates a new page and passes the specific product ID to it.
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => DummyProductPage(
+                        productId: product.id.toString(),
+                        productName: product.name,
+                      ),
+                    ),
+                  );
+                },
+                child: Container(
+                  decoration: BoxDecoration(
+                    color: _cream,
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(color: _taupe),
+                  ),
                 child: Padding(
                   padding: const EdgeInsets.all(16),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(
-                        product.name,
-                        style: const TextStyle(
-                          color: _dark,
-                          fontSize: 18,
-                          fontWeight: FontWeight.w700,
-                        ),
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Container(
+                            width: 50,
+                            height: 50,
+                            decoration: BoxDecoration(
+                              color: _taupe.withOpacity(0.4),
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: const Icon(Icons.inventory_2_outlined, color: _dark),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  product.name,
+                                  style: const TextStyle(
+                                    color: _dark,
+                                    fontSize: 18,
+                                    fontWeight: FontWeight.w700,
+                                  ),
+                                ),
+                                const SizedBox(height: 4),
+                                Text(
+                                  'ID: ${product.id}',
+                                  style: const TextStyle(color: _medium, fontSize: 13),
+                                ),
+                              ],
+                            ),
+                          ),
+                          IconButton(
+                            icon: const Icon(Icons.delete_outline, color: Colors.redAccent),
+                            padding: EdgeInsets.zero,
+                            constraints: const BoxConstraints(),
+                            onPressed: () => _changeQuantity(item, 0),
+                          ),
+                        ],
                       ),
                       const SizedBox(height: 8),
                       Wrap(
@@ -199,6 +314,13 @@ class _CartPageState extends State<CartPage> {
                             style: const TextStyle(color: _medium),
                           ),
                           Text(
+                            'Qty: ${item.quantity}',
+                            style: const TextStyle(
+                              color: _dark,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                          Text(
                             'Subtotal: \$${item.subtotal.toStringAsFixed(2)}',
                             style: const TextStyle(
                               color: _dark,
@@ -212,27 +334,36 @@ class _CartPageState extends State<CartPage> {
                         children: [
                           _QuantityButton(
                             icon: Icons.remove,
-                            onPressed: _isUpdating
-                                ? null
-                                : () => _changeQuantity(item, item.quantity - 1),
+                            onPressed: () {
+                                    int step = int.tryParse(controller.text) ?? 1;
+                                    step = step <= 0 ? 1 : step;
+                                    _changeQuantity(item, item.quantity - step);
+                                  },
                           ),
                           Container(
-                            width: 46,
+                            width: 60,
                             alignment: Alignment.center,
-                            child: Text(
-                              '${item.quantity}',
-                              style: const TextStyle(
-                                color: _dark,
-                                fontSize: 16,
-                                fontWeight: FontWeight.w700,
+                            padding: const EdgeInsets.symmetric(horizontal: 8),
+                            child: TextField(
+                              controller: controller,
+                              keyboardType: TextInputType.number,
+                              textAlign: TextAlign.center,
+                              style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: _dark),
+                              decoration: const InputDecoration(
+                                hintText: '1',
+                                isDense: true,
+                                contentPadding: EdgeInsets.symmetric(vertical: 8),
+                                border: OutlineInputBorder(),
                               ),
                             ),
                           ),
                           _QuantityButton(
                             icon: Icons.add,
-                            onPressed: _isUpdating
-                                ? null
-                                : () => _changeQuantity(item, item.quantity + 1),
+                            onPressed: () {
+                                    int step = int.tryParse(controller.text) ?? 1;
+                                    step = step <= 0 ? 1 : step;
+                                    _changeQuantity(item, item.quantity + step);
+                                  },
                           ),
                           const Spacer(),
                           if (item.quantity >= product.stockQuantity)
@@ -249,8 +380,9 @@ class _CartPageState extends State<CartPage> {
                     ],
                   ),
                 ),
-              );
-            },
+              ),
+            );
+          },
           ),
         ),
         Container(
@@ -282,15 +414,7 @@ class _CartPageState extends State<CartPage> {
                   ),
                 ],
               ),
-              const SizedBox(height: 10),
-              const Align(
-                alignment: Alignment.centerLeft,
-                child: Text(
-                  'Stock validation is simulated on every update.',
-                  style: TextStyle(color: _medium, fontSize: 12),
-                ),
-              ),
-              const SizedBox(height: 12),
+              const SizedBox(height: 20),
               Row(
                 children: [
                   Checkbox(
@@ -332,18 +456,20 @@ class _CartPageState extends State<CartPage> {
               SizedBox(
                 width: double.infinity,
                 child: ElevatedButton(
-                  onPressed: _handlePaymentPress,
+                  onPressed: _isPaymentConfirmed ? _handlePaymentPress : null,
                   style: ElevatedButton.styleFrom(
                     backgroundColor:
                         _isPaymentConfirmed ? _dark : _taupe,
+                    disabledBackgroundColor: _taupe,
                     foregroundColor: _offWhite,
+                    disabledForegroundColor: _offWhite.withOpacity(0.7),
                     padding: const EdgeInsets.symmetric(vertical: 13),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(6),
                     ),
                   ),
                   child: const Text(
-                    'Go to Payment',
+                    'Continue',
                     style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700),
                   ),
                 ),
@@ -422,6 +548,48 @@ class _QuantityButton extends StatelessWidget {
           ),
         ),
         child: Icon(icon, size: 18),
+      ),
+    );
+  }
+}
+
+// TODO: Replace this with your teammate's actual Product Page later!
+class DummyProductPage extends StatelessWidget {
+  final String productId;
+  final String productName;
+
+  const DummyProductPage({
+    super.key,
+    required this.productId,
+    required this.productName,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: _offWhite,
+      appBar: AppBar(
+        backgroundColor: _dark,
+        foregroundColor: _offWhite,
+        title: Text(productName),
+      ),
+      body: Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const Icon(Icons.construction, size: 60, color: _medium),
+            const SizedBox(height: 20),
+            Text(
+              'Item Page Placeholder',
+              style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: _dark),
+            ),
+            const SizedBox(height: 10),
+            Text(
+              'Dynamic Product ID: $productId',
+              style: const TextStyle(fontSize: 16, color: _medium),
+            ),
+          ],
+        ),
       ),
     );
   }

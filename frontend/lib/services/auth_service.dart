@@ -7,7 +7,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 class AuthService {
   final FirebaseAuth _auth = FirebaseAuth.instance;
 
-  static const String _baseUrl    = 'http://localhost:8000';
+  static const String _baseUrl    = 'http://127.0.0.1:8000';
   static const String _keyAccess  = 'access_token';
   static const String _keyRefresh = 'refresh_token';
 
@@ -83,6 +83,11 @@ class AuthService {
       if (response.statusCode == 201) {
         final body = jsonDecode(response.body) as Map<String, dynamic>;
         await _saveTokens(body['access'] as String, body['refresh'] as String);
+      } else {
+        await userCredential.user?.delete(); // Revert firebase user creation
+        if (!context.mounted) return null;
+        _showError(context, 'Backend registration failed: ${response.statusCode} - ${response.body}');
+        return null;
       }
 
       return userCredential;
@@ -129,6 +134,11 @@ class AuthService {
       if (response.statusCode == 200) {
         final body = jsonDecode(response.body) as Map<String, dynamic>;
         await _saveTokens(body['access'] as String, body['refresh'] as String);
+      } else {
+        await _auth.signOut(); // Revert firebase login
+        if (!context.mounted) return null;
+        _showError(context, 'Backend login failed. Invalid credentials or user not found.');
+        return null;
       }
 
       return userCredential;
