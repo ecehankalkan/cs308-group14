@@ -172,6 +172,7 @@ class Cart(models.Model):
 
 class DeliveryAddress(models.Model):
     customer       = models.ForeignKey(Customer, on_delete=models.CASCADE, related_name='delivery_addresses')
+    label          = models.CharField(max_length=50, blank=True, default='')  # e.g., "Home", "Work", "School"
     recipient_name = models.CharField(max_length=255)
     street         = models.CharField(max_length=255)
     city           = models.CharField(max_length=100)
@@ -184,7 +185,8 @@ class DeliveryAddress(models.Model):
         indexes = [models.Index(fields=['customer'])]
 
     def __str__(self):
-        return f'{self.recipient_name} — {self.street}, {self.city}'
+        label_prefix = f"[{self.label}] " if self.label else ""
+        return f'{label_prefix}{self.recipient_name} — {self.street}, {self.city}'
 
 
 # ---------------------------------------------------------------------------
@@ -198,6 +200,7 @@ class PaymentCard(models.Model):
     Use payment processors like Stripe/PayPal instead.
     """
     customer      = models.ForeignKey(Customer, on_delete=models.CASCADE, related_name='payment_cards')
+    label         = models.CharField(max_length=50, blank=True, default='')  # e.g., "Personal", "Business"
     card_number   = models.CharField(max_length=19)  # MOCK DATA ONLY
     holder_name   = models.CharField(max_length=255)
     expiry_date   = models.CharField(max_length=7)  # Format: MM/YYYY
@@ -208,4 +211,5 @@ class PaymentCard(models.Model):
         indexes = [models.Index(fields=['customer'])]
 
     def __str__(self):
-        return f'{self.holder_name} — **** **** **** {self.card_number[-4:]}'
+        label_prefix = f"[{self.label}] " if self.label else ""
+        return f'{label_prefix}{self.holder_name} — **** **** **** {self.card_number[-4:]}'

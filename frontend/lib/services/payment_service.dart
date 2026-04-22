@@ -25,6 +25,7 @@ class PaymentService {
 
   // Save a new delivery address
   static Future<Map<String, dynamic>?> saveAddress({
+    String label = '',
     required String recipientName,
     required String street,
     required String city,
@@ -38,6 +39,7 @@ class PaymentService {
         Uri.parse('$_baseUrl/api/addresses/'),
         headers: headers,
         body: jsonEncode({
+          'label': label,
           'recipient_name': recipientName,
           'street': street,
           'city': city,
@@ -76,6 +78,7 @@ class PaymentService {
 
   // Save a new payment card (MOCK DATA ONLY)
   static Future<Map<String, dynamic>?> savePaymentCard({
+    String label = '',
     required String cardNumber,
     required String holderName,
     required String expiryDate,
@@ -87,6 +90,7 @@ class PaymentService {
         Uri.parse('$_baseUrl/api/payment-cards/'),
         headers: headers,
         body: jsonEncode({
+          'label': label,
           'card_number': cardNumber,
           'holder_name': holderName,
           'expiry_date': expiryDate,
@@ -101,6 +105,38 @@ class PaymentService {
       print('Error saving card: $e');
     }
     return null;
+  }
+
+  // Set an address as default
+  static Future<bool> setAddressDefault(int addressId) async {
+    try {
+      final headers = await AuthService.getAuthHeaders();
+      final response = await http.patch(
+        Uri.parse('$_baseUrl/api/addresses/$addressId/'),
+        headers: headers,
+        body: jsonEncode({'is_default': true}),
+      );
+      return response.statusCode == 200;
+    } catch (e) {
+      print('Error setting default address: $e');
+      return false;
+    }
+  }
+
+  // Set a card as default
+  static Future<bool> setCardDefault(int cardId) async {
+    try {
+      final headers = await AuthService.getAuthHeaders();
+      final response = await http.patch(
+        Uri.parse('$_baseUrl/api/payment-cards/$cardId/'),
+        headers: headers,
+        body: jsonEncode({'is_default': true}),
+      );
+      return response.statusCode == 200;
+    } catch (e) {
+      print('Error setting default card: $e');
+      return false;
+    }
   }
 
   // Delete an address

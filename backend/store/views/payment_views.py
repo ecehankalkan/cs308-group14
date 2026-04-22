@@ -6,7 +6,7 @@ from django.db import transaction
 from django.utils import timezone
 from decimal import Decimal
 
-from ..models import Cart, Order, OrderItem, Product
+from ..models import Cart, Order, OrderItem, Product, DeliveryAddress, PaymentCard
 from ..services.invoice_service import generate_invoice_pdf
 from django.core.mail import EmailMessage
 
@@ -20,12 +20,16 @@ def checkout_view(request):
     Expected data:
     {
         "shipping_address": "123 Main St, City, ZIP, Country",
-        "card_last_four": "1234"  // mock payment, just for receipt
+        "card_last_four": "1234",
+        "address_id": 1,  // optional: ID of saved address used
+        "card_id": 1      // optional: ID of saved card used
     }
     """
     customer = request.user
     shipping_address = request.data.get('shipping_address', '').strip()
     card_last_four = request.data.get('card_last_four', '****')
+    address_id = request.data.get('address_id')
+    card_id = request.data.get('card_id')
     
     # Validation
     if not shipping_address:

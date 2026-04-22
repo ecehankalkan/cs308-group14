@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../models/order.dart';
 import '../services/user_service.dart';
+import '../services/payment_service.dart';
 
 const _dark = Color(0xFF8D7B68);
 const _medium = Color(0xFFA4907C);
@@ -26,6 +27,8 @@ class _ProfilePageState extends State<ProfilePage> {
   String? _taxId;
   String? _homeAddress;
   List<Order> _orders = [];
+  List<Map<String, dynamic>> _savedAddresses = [];
+  List<Map<String, dynamic>> _savedCards = [];
 
   User? get _user => FirebaseAuth.instance.currentUser;
 
@@ -44,12 +47,16 @@ class _ProfilePageState extends State<ProfilePage> {
   Future<void> _loadData() async {
     final profile = await _userService.fetchProfile();
     final orders = await _userService.fetchOrderHistory();
+    final addresses = await PaymentService.fetchAddresses();
+    final cards = await PaymentService.fetchPaymentCards();
     if (!mounted) return;
     setState(() {
       _taxId = profile?['tax_id'] as String?;
       _homeAddress = profile?['home_address'] as String?;
       _addressController.text = _homeAddress ?? '';
       _orders = orders;
+      _savedAddresses = addresses;
+      _savedCards = cards;
       _isLoading = false;
     });
   }
@@ -70,6 +77,102 @@ class _ProfilePageState extends State<ProfilePage> {
         backgroundColor: success ? Colors.green : Colors.red,
       ),
     );
+  }
+
+  Future<void> _deleteAddress(int id) async {
+    final success = await PaymentService.deleteAddress(id);
+    if (!mounted) return;
+    if (success) {
+      setState(() {
+        _savedAddresses.removeWhere((addr) => addr['id'] == id);
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Address deleted.'),
+          backgroundColor: Colors.green,
+        ),
+      );
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Failed to delete address.'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
+  }
+
+  Future<void> _deleteCard(int id) async {
+    final success = await PaymentService.deletePaymentCard(id);
+    if (!mounted) return;
+    if (success) {
+      setState(() {
+        _savedCards.removeWhere((card) => card['id'] == id);
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Card deleted.'),
+          backgroundColor: Colors.green,
+        ),
+      );
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Failed to delete card.'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
+  }
+
+  Future<void> _setAddressDefault(int id) async {
+    final success = await PaymentService.setAddressDefault(id);
+    if (!mounted) return;
+    if (success) {
+      setState(() {
+        for (var addr in _savedAddresses) {
+          addr['is_default'] = (addr['id'] == id);
+        }
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Default address updated.'),
+          backgroundColor: Colors.green,
+        ),
+      );
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Failed to update default address.'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
+  }
+
+  Future<void> _setCardDefault(int id) async {
+    final success = await PaymentService.setCardDefault(id);
+    if (!mounted) return;
+    if (success) {
+      setState(() {
+        for (var card in _savedCards) {
+          card['is_default'] = (card['id'] == id);
+        }
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Default card updated.'),
+          backgroundColor: Colors.green,
+        ),
+      );
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Failed to update default card.'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
   }
 
   @override
@@ -256,6 +359,66 @@ class _ProfilePageState extends State<ProfilePage> {
               ],
             ),
           ),
+          const SizedBox(height: 28),
+
+          // ── Saved Addresses ────────────────────────────────────────
+          const _SectionTitle('Saved Addresses'),
+          const SizedBox(height: 12),
+          if (_savedAddresses.isEmpty)
+            _SectionCard(
+              child: const Center(
+                child: Padding(
+                  padding: EdgeInsets.symmetric(vertical: 28),
+                  child: Column(
+                    children: [
+                      Icon(Icons.location_on_outlined, size: 48, color: _taupe),
+                      SizedBox(height: 12),
+                      Text(
+                        'No saved addresses yet.',
+                        style: TextStyle(color: _medium, fontSize: 15),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            )
+          else
+            ..._savedAddresses.map(
+              (addr) => Padding(
+                padding: const EdgeInsets.only(bottom: 12),
+                child: _AddressCard(address: addr, onDelete: _deleteAddress, onSetDefault: _setAddressDefault),
+              ),
+            ),
+          const SizedBox(height: 28),
+
+          // ── Saved Payment Cards ────────────────────────────────────
+          const _SectionTitle('Saved Payment Cards'),
+          const SizedBox(height: 12),
+          if (_savedCards.isEmpty)
+            _SectionCard(
+              child: const Center(
+                child: Padding(
+                  padding: EdgeInsets.symmetric(vertical: 28),
+                  child: Column(
+                    children: [
+                      Icon(Icons.credit_card_outlined, size: 48, color: _taupe),
+                      SizedBox(height: 12),
+                      Text(
+                        'No saved cards yet.',
+                        style: TextStyle(color: _medium, fontSize: 15),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            )
+          else
+            ..._savedCards.map(
+              (card) => Padding(
+                padding: const EdgeInsets.only(bottom: 12),
+                child: _CardCard(card: card, onDelete: _deleteCard, onSetDefault: _setCardDefault),
+              ),
+            ),
           const SizedBox(height: 28),
 
           // ── Order history ──────────────────────────────────────────
@@ -621,6 +784,230 @@ class _OrderItemRow extends StatelessWidget {
               ),
             ],
           ),
+        ],
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────
+// Address and Card display cards
+// ─────────────────────────────────────────────────────────────────
+
+class _AddressCard extends StatelessWidget {
+  final Map<String, dynamic> address;
+  final Function(int) onDelete;
+  final Function(int)? onSetDefault;
+  const _AddressCard({required this.address, required this.onDelete, this.onSetDefault});
+
+  @override
+  Widget build(BuildContext context) {
+    final isDefault = address['is_default'] == true;
+    final label = address['label'] ?? '';
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: _cream,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: isDefault ? _dark : _taupe, width: isDefault ? 1.5 : 1),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    if (label.isNotEmpty)
+                      Text(
+                        label,
+                        style: const TextStyle(
+                          color: _dark,
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    Text(
+                      address['recipient_name'] ?? '',
+                      style: TextStyle(
+                        color: _dark,
+                        fontSize: 15,
+                        fontWeight: label.isEmpty ? FontWeight.w700 : FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              if (isDefault)
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: _dark,
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                  child: const Text(
+                    'DEFAULT',
+                    style: TextStyle(
+                      color: _offWhite,
+                      fontSize: 10,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ),
+              const SizedBox(width: 8),
+              IconButton(
+                icon: const Icon(Icons.delete_outline, color: _medium, size: 20),
+                onPressed: () => onDelete(address['id']),
+                padding: EdgeInsets.zero,
+                constraints: const BoxConstraints(),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Text(
+            '${address['street']}',
+            style: const TextStyle(color: _dark, fontSize: 13),
+          ),
+          Text(
+            '${address['city']}, ${address['zip_code']}',
+            style: const TextStyle(color: _dark, fontSize: 13),
+          ),
+          Text(
+            '${address['country']}',
+            style: const TextStyle(color: _dark, fontSize: 13),
+          ),
+          if (!isDefault && onSetDefault != null) ...[
+            const SizedBox(height: 12),
+            TextButton.icon(
+              onPressed: () => onSetDefault!(address['id']),
+              icon: const Icon(Icons.check_circle_outline, size: 16, color: _dark),
+              label: const Text(
+                'Set as Default',
+                style: TextStyle(color: _dark, fontSize: 12, fontWeight: FontWeight.w600),
+              ),
+              style: TextButton.styleFrom(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                backgroundColor: _offWhite,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(6),
+                  side: const BorderSide(color: _taupe),
+                ),
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class _CardCard extends StatelessWidget {
+  final Map<String, dynamic> card;
+  final Function(int) onDelete;
+  final Function(int)? onSetDefault;
+  const _CardCard({required this.card, required this.onDelete, this.onSetDefault});
+
+  @override
+  Widget build(BuildContext context) {
+    final isDefault = card['is_default'] == true;
+    final cardNumber = card['card_number'] ?? '';
+    final last4 = cardNumber.length >= 4 ? cardNumber.substring(cardNumber.length - 4) : cardNumber;
+    final label = card['label'] ?? '';
+    
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: _cream,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: isDefault ? _dark : _taupe, width: isDefault ? 1.5 : 1),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(Icons.credit_card, color: _dark, size: 24),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    if (label.isNotEmpty)
+                      Text(
+                        label,
+                        style: const TextStyle(
+                          color: _dark,
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    Text(
+                      card['holder_name'] ?? '',
+                      style: TextStyle(
+                        color: _dark,
+                        fontSize: 15,
+                        fontWeight: label.isEmpty ? FontWeight.w700 : FontWeight.w600,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      '•••• •••• •••• $last4',
+                      style: const TextStyle(color: _medium, fontSize: 13),
+                    ),
+                  ],
+                ),
+              ),
+              if (isDefault)
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: _dark,
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                  child: const Text(
+                    'DEFAULT',
+                    style: TextStyle(
+                      color: _offWhite,
+                      fontSize: 10,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ),
+              const SizedBox(width: 8),
+              IconButton(
+                icon: const Icon(Icons.delete_outline, color: _medium, size: 20),
+                onPressed: () => onDelete(card['id']),
+                padding: EdgeInsets.zero,
+                constraints: const BoxConstraints(),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'Expires: ${card['expiry_date']}',
+            style: const TextStyle(color: _medium, fontSize: 12),
+          ),
+          if (!isDefault && onSetDefault != null) ...[
+            const SizedBox(height: 12),
+            TextButton.icon(
+              onPressed: () => onSetDefault!(card['id']),
+              icon: const Icon(Icons.check_circle_outline, size: 16, color: _dark),
+              label: const Text(
+                'Set as Default',
+                style: TextStyle(color: _dark, fontSize: 12, fontWeight: FontWeight.w600),
+              ),
+              style: TextButton.styleFrom(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                backgroundColor: _offWhite,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(6),
+                  side: const BorderSide(color: _taupe),
+                ),
+              ),
+            ),
+          ],
         ],
       ),
     );

@@ -71,12 +71,12 @@ class CartSerializer(serializers.ModelSerializer):
 class DeliveryAddressSerializer(serializers.ModelSerializer):
     class Meta:
         model = DeliveryAddress
-        fields = ['id', 'recipient_name', 'street', 'city', 'zip_code', 'country', 'is_default', 'created_at']
+        fields = ['id', 'label', 'recipient_name', 'street', 'city', 'zip_code', 'country', 'is_default', 'created_at']
         read_only_fields = ['id', 'created_at']
 
 
 class PaymentCardSerializer(serializers.ModelSerializer):
     class Meta:
         model = PaymentCard
-        fields = ['id', 'card_number', 'holder_name', 'expiry_date', 'is_default', 'created_at']
+        fields = ['id', 'label', 'card_number', 'holder_name', 'expiry_date', 'is_default', 'created_at']
         read_only_fields = ['id', 'created_at']

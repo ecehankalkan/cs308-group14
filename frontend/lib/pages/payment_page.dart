@@ -14,6 +14,7 @@ const _offWhite = Color(0xFFFAF5EF);
 
 class DeliveryAddress {
   final String id;
+  final String label;
   final String recipientName;
   final String street;
   final String city;
@@ -23,6 +24,7 @@ class DeliveryAddress {
 
   const DeliveryAddress({
     required this.id,
+    this.label = '',
     required this.recipientName,
     required this.street,
     required this.city,
@@ -32,10 +34,12 @@ class DeliveryAddress {
   });
 
   String get fullAddress => '$street, $city $zipCode, $country';
+  String get displayName => label.isNotEmpty ? label : recipientName;
 }
 
 class PaymentCard {
   final String id;
+  final String label;
   final String cardNumber;
   final String holderName;
   final String expiryDate;
@@ -43,6 +47,7 @@ class PaymentCard {
 
   const PaymentCard({
     required this.id,
+    this.label = '',
     required this.cardNumber,
     required this.holderName,
     required this.expiryDate,
@@ -51,6 +56,7 @@ class PaymentCard {
 
   String get maskedNumber =>
       '**** **** **** ${cardNumber.substring(cardNumber.length - 4)}';
+  String get displayName => label.isNotEmpty ? label : holderName;
 }
 
 class PaymentPage extends StatefulWidget {
@@ -66,14 +72,13 @@ class _PaymentPageState extends State<PaymentPage> {
   List<DeliveryAddress> _savedAddresses = [];
   String? _selectedAddressId;
   bool _showAddAddress = false;
-  bool _isLoadingAddresses = true;
 
   List<PaymentCard> _savedCards = [];
   String? _selectedCardId;
   bool _showAddCard = false;
-  bool _isLoadingCards = true;
 
   final _addressFormKey = GlobalKey<FormState>();
+  final _addressLabelController = TextEditingController();
   final _recipientNameController = TextEditingController();
   final _streetController = TextEditingController();
   final _cityController = TextEditingController();
@@ -82,6 +87,7 @@ class _PaymentPageState extends State<PaymentPage> {
   bool _saveAddress = false;
 
   final _cardFormKey = GlobalKey<FormState>();
+  final _cardLabelController = TextEditingController();
   final _cardNumberController = TextEditingController();
   final _holderNameController = TextEditingController();
   final _expiryController = TextEditingController();
@@ -104,6 +110,7 @@ class _PaymentPageState extends State<PaymentPage> {
         setState(() {
           _savedAddresses = addresses.map((data) => DeliveryAddress(
             id: data['id'].toString(),
+            label: data['label'] ?? '',
             recipientName: data['recipient_name'] ?? '',
             street: data['street'] ?? '',
             city: data['city'] ?? '',
@@ -114,6 +121,7 @@ class _PaymentPageState extends State<PaymentPage> {
 
           _savedCards = cards.map((data) => PaymentCard(
             id: data['id'].toString(),
+            label: data['label'] ?? '',
             cardNumber: data['card_number'] ?? '',
             holderName: data['holder_name'] ?? '',
             expiryDate: data['expiry_date'] ?? '',
@@ -126,28 +134,24 @@ class _PaymentPageState extends State<PaymentPage> {
           if (_savedCards.isNotEmpty) {
             _selectedCardId = _savedCards.firstWhere((c) => c.isDefault, orElse: () => _savedCards.first).id;
           }
-
-          _isLoadingAddresses = false;
-          _isLoadingCards = false;
         });
       }
     } catch (e) {
       if (mounted) {
-        setState(() {
-          _isLoadingAddresses = false;
-          _isLoadingCards = false;
-        });
+        setState(() {});
       }
     }
   }
 
   @override
   void dispose() {
+    _addressLabelController.dispose();
     _recipientNameController.dispose();
     _streetController.dispose();
     _cityController.dispose();
     _zipCodeController.dispose();
     _countryController.dispose();
+    _cardLabelController.dispose();
     _cardNumberController.dispose();
     _holderNameController.dispose();
     _expiryController.dispose();
@@ -206,6 +210,7 @@ class _PaymentPageState extends State<PaymentPage> {
       // Save address to backend if requested
       if (_showAddAddress && _saveAddress) {
         final savedData = await PaymentService.saveAddress(
+          label: _addressLabelController.text.trim(),
           recipientName: _recipientNameController.text,
           street: _streetController.text,
           city: _cityController.text,
@@ -217,6 +222,7 @@ class _PaymentPageState extends State<PaymentPage> {
         if (savedData != null) {
           final newAddress = DeliveryAddress(
             id: savedData['id'].toString(),
+            label: savedData['label'] ?? '',
             recipientName: savedData['recipient_name'],
             street: savedData['street'],
             city: savedData['city'],
@@ -237,6 +243,7 @@ class _PaymentPageState extends State<PaymentPage> {
       // Save card to backend if requested (MOCK DATA ONLY)
       if (_showAddCard && _saveCard) {
         final savedData = await PaymentService.savePaymentCard(
+          label: _cardLabelController.text.trim(),
           cardNumber: _cardNumberController.text.replaceAll(' ', ''),
           holderName: _holderNameController.text,
           expiryDate: _expiryController.text,
@@ -246,6 +253,7 @@ class _PaymentPageState extends State<PaymentPage> {
         if (savedData != null) {
           final newCard = PaymentCard(
             id: savedData['id'].toString(),
+            label: savedData['label'] ?? '',
             cardNumber: savedData['card_number'],
             holderName: savedData['holder_name'],
             expiryDate: savedData['expiry_date'],
@@ -283,13 +291,23 @@ class _PaymentPageState extends State<PaymentPage> {
       }
       
       // Call backend checkout API
+      final Map<String, dynamic> payload = {
+        'shipping_address': shippingAddress,
+        'card_last_four': cardLastFour,
+      };
+      
+      // Include IDs if using saved address/card (to mark as default)
+      if (!_showAddAddress && _selectedAddressId != null) {
+        payload['address_id'] = _selectedAddressId!;
+      }
+      if (!_showAddCard && _selectedCardId != null) {
+        payload['card_id'] = _selectedCardId!;
+      }
+      
       final response = await http.post(
         Uri.parse('http://127.0.0.1:8000/api/checkout/'),
         headers: headers,
-        body: jsonEncode({
-          'shipping_address': shippingAddress,
-          'card_last_four': cardLastFour,
-        }),
+        body: jsonEncode(payload),
       );
 
       if (response.statusCode == 201) {
@@ -554,6 +572,13 @@ class _PaymentPageState extends State<PaymentPage> {
             ),
             const SizedBox(height: 16),
             _buildTextField(
+              controller: _addressLabelController,
+              label: 'Label (Optional)',
+              hint: 'e.g., Home, Work, School',
+              icon: Icons.label_outline,
+            ),
+            const SizedBox(height: 16),
+            _buildTextField(
               controller: _recipientNameController,
               label: 'Recipient Name',
               hint: 'John Doe',
@@ -787,6 +812,13 @@ class _PaymentPageState extends State<PaymentPage> {
                   splashRadius: 20,
                 ),
               ],
+            ),
+            const SizedBox(height: 16),
+            _buildTextField(
+              controller: _cardLabelController,
+              label: 'Label (Optional)',
+              hint: 'e.g., Personal, Business',
+              icon: Icons.label_outline,
             ),
             const SizedBox(height: 16),
             _buildTextField(
