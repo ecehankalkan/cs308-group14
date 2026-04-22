@@ -25,6 +25,9 @@ urlpatterns = [
     path('guest/cart/',          views.GuestCartView.as_view(),         name='guest_cart'),
     path('guest/cart/<int:pk>/', views.GuestCartItemView.as_view(),     name='guest_cart_item'),
 
+    # Checkout & Payment
+    path('checkout/', views.checkout_view, name='checkout'),
+
     # Testing Endpoint for Invoices & Emails (SCRUM 54-56)
     path('test-invoice/', views.test_invoice_email, name='test_invoice'),
 ]

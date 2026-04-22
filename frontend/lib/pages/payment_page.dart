@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'dart:convert';
+import 'package:http/http.dart' as http;
+import '../services/auth_service.dart';
 import 'payment_success_page.dart';
 
 const _dark = Color(0xFF8D7B68);
@@ -81,6 +84,7 @@ class _PaymentPageState extends State<PaymentPage> {
   final _expiryController = TextEditingController();
   final _cvvController = TextEditingController();
   bool _saveCard = false;
+  bool _isProcessing = false;
 
   @override
   void dispose() {
@@ -96,7 +100,7 @@ class _PaymentPageState extends State<PaymentPage> {
     super.dispose();
   }
 
-  void _handlePayment() {
+  Future<void> _handlePayment() async {
     if (_savedAddresses.isEmpty && !_showAddAddress) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -141,9 +145,79 @@ class _PaymentPageState extends State<PaymentPage> {
       return;
     }
 
-    Navigator.of(context).pushReplacement(
-      MaterialPageRoute(builder: (context) => const PaymentSuccessPage()),
-    );
+    setState(() => _isProcessing = true);
+
+    try {
+      // Get Django JWT token from AuthService
+      final headers = await AuthService.getAuthHeaders();
+      
+      // Build shipping address string
+      String shippingAddress;
+      if (_showAddAddress) {
+        shippingAddress = '${_recipientNameController.text}, ${_streetController.text}, ${_cityController.text} ${_zipCodeController.text}, ${_countryController.text}';
+      } else {
+        final selectedAddress = _savedAddresses.firstWhere((a) => a.id == _selectedAddressId);
+        shippingAddress = '${selectedAddress.recipientName}, ${selectedAddress.fullAddress}';
+      }
+      
+      // Get card last 4 digits
+      String cardLastFour;
+      if (_showAddCard) {
+        cardLastFour = _cardNumberController.text.replaceAll(' ', '').substring(12);
+      } else {
+        final selectedCard = _savedCards.firstWhere((c) => c.id == _selectedCardId);
+        cardLastFour = selectedCard.cardNumber.substring(selectedCard.cardNumber.length - 4);
+      }
+      
+      // Call backend checkout API
+      final response = await http.post(
+        Uri.parse('http://127.0.0.1:8000/api/checkout/'),
+        headers: headers,
+        body: jsonEncode({
+          'shipping_address': shippingAddress,
+          'card_last_four': cardLastFour,
+        }),
+      );
+
+      if (response.statusCode == 201) {
+        final data = jsonDecode(response.body);
+        
+        if (!mounted) return;
+        
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(data['message'] ?? 'Payment successful!'),
+            backgroundColor: Colors.green,
+          ),
+        );
+        
+        Navigator.of(context).pushReplacement(
+          MaterialPageRoute(
+            builder: (context) => PaymentSuccessPage(
+              orderNumber: data['order_number'] ?? 'N/A',
+              totalAmount: data['total_amount']?.toDouble() ?? 0.0,
+            ),
+          ),
+        );
+      } else {
+        final error = jsonDecode(response.body);
+        throw Exception(error['error'] ?? 'Payment failed');
+      }
+    } catch (e) {
+      if (!mounted) return;
+      
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Payment failed: ${e.toString()}'),
+          backgroundColor: Colors.red,
+          duration: const Duration(seconds: 5),
+        ),
+      );
+    } finally {
+      if (mounted) {
+        setState(() => _isProcessing = false);
+      }
+    }
   }
 
   @override
@@ -807,7 +881,7 @@ class _PaymentPageState extends State<PaymentPage> {
     return SizedBox(
       height: 52,
       child: ElevatedButton(
-        onPressed: _handlePayment,
+        onPressed: _isProcessing ? null : _handlePayment,
         style: ElevatedButton.styleFrom(
           backgroundColor: _dark,
           foregroundColor: _offWhite,
@@ -815,15 +889,25 @@ class _PaymentPageState extends State<PaymentPage> {
             borderRadius: BorderRadius.circular(10),
           ),
           elevation: 0,
+          disabledBackgroundColor: _medium,
         ),
-        child: Text(
-          'Pay \$${widget.totalAmount.toStringAsFixed(2)}',
-          style: const TextStyle(
-            fontSize: 17,
-            fontWeight: FontWeight.w700,
-            letterSpacing: 0.5,
-          ),
-        ),
+        child: _isProcessing
+            ? const SizedBox(
+                height: 20,
+                width: 20,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                  valueColor: AlwaysStoppedAnimation<Color>(_offWhite),
+                ),
+              )
+            : Text(
+                'Pay \$${widget.totalAmount.toStringAsFixed(2)}',
+                style: const TextStyle(
+                  fontSize: 17,
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: 0.5,
+                ),
+              ),
       ),
     );
   }

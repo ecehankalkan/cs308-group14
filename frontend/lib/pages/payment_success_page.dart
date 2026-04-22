@@ -5,7 +5,14 @@ const _medium = Color(0xFFA4907C);
 const _offWhite = Color(0xFFFAF5EF);
 
 class PaymentSuccessPage extends StatelessWidget {
-  const PaymentSuccessPage({super.key});
+  final String? orderNumber;
+  final double? totalAmount;
+
+  const PaymentSuccessPage({
+    super.key,
+    this.orderNumber,
+    this.totalAmount,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -51,6 +58,37 @@ class PaymentSuccessPage extends StatelessWidget {
                     color: _medium,
                     fontSize: 16,
                     fontWeight: FontWeight.w500,
+                  ),
+                ),
+                if (orderNumber != null) ...[
+                  const SizedBox(height: 24),
+                  Text(
+                    'Order Number: $orderNumber',
+                    style: const TextStyle(
+                      color: _dark,
+                      fontSize: 18,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ],
+                if (totalAmount != null) ...[
+                  const SizedBox(height: 8),
+                  Text(
+                    'Total: \$${totalAmount!.toStringAsFixed(2)}',
+                    style: TextStyle(
+                      color: _medium,
+                      fontSize: 16,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ],
+                const SizedBox(height: 16),
+                Text(
+                  'Invoice sent to your email',
+                  style: TextStyle(
+                    color: _medium.withOpacity(0.8),
+                    fontSize: 14,
+                    fontStyle: FontStyle.italic,
                   ),
                 ),
               ],

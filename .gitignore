@@ -1,5 +1,6 @@
 # Django sensitive settings — never commit real credentials
 backend/config/settings.py
+database_credentials_for_team.txt
 
 # Python
 __pycache__/
