@@ -24,17 +24,22 @@ class ProductPage extends StatefulWidget {
 class _ProductPageState extends State<ProductPage> {
   final CartService _cartService = CartService();
   final ProductService _productService = ProductService();
+  final TextEditingController _quantityController = TextEditingController(text: '1');
 
   Product? _backendProduct;
-  int _quantityInCart = 0;
-  bool _isBusy = true;
+  int _selectedQuantity = 1;
   bool _isLoadingProduct = true;
 
   @override
   void initState() {
     super.initState();
     _loadProductFromBackend();
-    _loadCurrentQuantity();
+  }
+
+  @override
+  void dispose() {
+    _quantityController.dispose();
+    super.dispose();
   }
 
   Product get _displayProduct => _backendProduct ?? widget.product;
@@ -49,56 +54,45 @@ class _ProductPageState extends State<ProductPage> {
     });
   }
 
-  Future<void> _loadCurrentQuantity() async {
-    final items = await _cartService.fetchCartItems();
-    final matched = items.where((i) => i.product.id == _displayProduct.id).firstOrNull;
-
-    if (!mounted) return;
+  void _changeQuantity(int newQuantity) {
+    final maxQuantity = _displayProduct.stockQuantity;
+    int validQuantity = newQuantity.clamp(1, maxQuantity > 0 ? maxQuantity : 1);
+    
     setState(() {
-      _quantityInCart = matched?.quantity ?? 0;
-      _isBusy = false;
+      _selectedQuantity = validQuantity;
+      _quantityController.text = validQuantity.toString();
     });
   }
 
-  Future<void> _addFirstItem() async {
+  Future<void> _addToCart() async {
     final product = _displayProduct;
-    if (product.stockQuantity <= 0 || _isBusy) return;
+    if (product.stockQuantity <= 0) return;
 
-    setState(() => _isBusy = true);
-    await _cartService.addOrIncrementItem(product.id);
-    await _loadCurrentQuantity();
+    final quantityToAdd = _selectedQuantity;
 
-    if (!mounted) return;
     ScaffoldMessenger.of(context).hideCurrentSnackBar();
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text('${product.name} added to cart.'),
+        content: Text('$quantityToAdd x ${product.name} added to cart.'),
         backgroundColor: Colors.green,
+        duration: const Duration(seconds: 2),
       ),
     );
-  }
 
-  Future<void> _changeQuantityBy(int delta) async {
-    if (_isBusy) return;
-
-    final product = _displayProduct;
-
-    final nextQuantity = (_quantityInCart + delta).clamp(0, product.stockQuantity);
-    if (nextQuantity == _quantityInCart) return;
-
-    setState(() => _isBusy = true);
-    final result = await _cartService.updateQuantity(
-      productId: product.id,
-      requestedQuantity: nextQuantity,
-    );
-
-    final matched = result.items.where((i) => i.product.id == product.id).firstOrNull;
-
-    if (!mounted) return;
-    setState(() {
-      _quantityInCart = matched?.quantity ?? 0;
-      _isBusy = false;
-    });
+    try {
+      await _cartService.addItems(product.id, quantityToAdd);
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).hideCurrentSnackBar();
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to add ${product.name}'),
+            backgroundColor: Colors.red,
+            duration: const Duration(seconds: 2),
+          ),
+        );
+      }
+    }
   }
 
   @override
@@ -295,61 +289,83 @@ class _ProductPageState extends State<ProductPage> {
   }
 
   Widget _buildCartControls(bool hasStock) {
-    if (_isBusy) {
-      return const SizedBox(
-        height: 48,
-        child: Center(child: CircularProgressIndicator(color: _dark)),
-      );
-    }
-
-    if (_quantityInCart <= 0) {
+    if (!hasStock) {
       return SizedBox(
         height: 48,
         width: 220,
         child: ElevatedButton(
-          onPressed: hasStock ? _addFirstItem : null,
+          onPressed: null,
           style: ElevatedButton.styleFrom(
             backgroundColor: _dark,
-            foregroundColor: _offWhite,
             disabledBackgroundColor: _taupe,
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
           ),
-          child: Text(hasStock ? 'Add to Cart' : 'Out of Stock'),
+          child: const Text('Out of Stock', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
         ),
       );
     }
 
     return Row(
       mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.center,
       children: [
         _QuantityButton(
           icon: Icons.remove,
-          onPressed: () => _changeQuantityBy(-1),
+          onPressed: () {
+            int current = int.tryParse(_quantityController.text) ?? 1;
+            _changeQuantity(current - 1);
+          },
         ),
-        Container(
-          width: 64,
-          height: 44,
-          alignment: Alignment.center,
-          margin: const EdgeInsets.symmetric(horizontal: 10),
-          decoration: BoxDecoration(
-            color: _cream,
-            borderRadius: BorderRadius.circular(8),
-            border: Border.all(color: _taupe),
-          ),
-          child: Text(
-            '$_quantityInCart',
-            style: const TextStyle(
-              color: _dark,
-              fontWeight: FontWeight.w800,
-              fontSize: 18,
+        const SizedBox(width: 8),
+        SizedBox(
+          width: 60,
+          height: 48,
+          child: TextField(
+            controller: _quantityController,
+            keyboardType: TextInputType.number,
+            textAlign: TextAlign.center,
+            textAlignVertical: TextAlignVertical.center,
+            style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: _dark),
+            onChanged: (val) {
+               int? parsed = int.tryParse(val);
+               if (parsed != null) {
+                 _selectedQuantity = parsed.clamp(1, _displayProduct.stockQuantity);
+               }
+            },
+            decoration: InputDecoration(
+              contentPadding: EdgeInsets.zero,
+              enabledBorder: OutlineInputBorder(
+                borderSide: const BorderSide(color: _dark),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              focusedBorder: OutlineInputBorder(
+                borderSide: const BorderSide(color: _dark, width: 2),
+                borderRadius: BorderRadius.circular(8),
+              ),
             ),
           ),
         ),
+        const SizedBox(width: 8),
         _QuantityButton(
           icon: Icons.add,
-          onPressed: _quantityInCart >= widget.product.stockQuantity
-              ? null
-              : () => _changeQuantityBy(1),
+          onPressed: () {
+            int current = int.tryParse(_quantityController.text) ?? 1;
+            _changeQuantity(current + 1);
+          },
+        ),
+        const SizedBox(width: 24),
+        SizedBox(
+          height: 48,
+          child: ElevatedButton(
+            onPressed: _addToCart,
+            style: ElevatedButton.styleFrom(
+              backgroundColor: _dark,
+              foregroundColor: _offWhite,
+              padding: const EdgeInsets.symmetric(horizontal: 32),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+            ),
+            child: const Text('Add to Cart', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+          ),
         ),
       ],
     );
@@ -365,8 +381,8 @@ class _QuantityButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return SizedBox(
-      width: 44,
-      height: 44,
+      width: 48,
+      height: 48,
       child: OutlinedButton(
         onPressed: onPressed,
         style: OutlinedButton.styleFrom(
