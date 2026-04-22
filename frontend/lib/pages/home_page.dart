@@ -87,8 +87,67 @@ const Map<DeweyCategory, Color> _categoryColors = {
   DeweyCategory.history:        Color(0xFF7A6E4A),
 };
 
-class HomePage extends StatelessWidget {
+// ─── Sort options ────────────────────────────────────────────────────────────
+enum _SortOption { none, priceLowHigh, priceHighLow }
+
+// ─── HomePage (now StatefulWidget) ───────────────────────────────────────────
+class HomePage extends StatefulWidget {
   const HomePage({super.key});
+
+  @override
+  State<HomePage> createState() => _HomePageState();
+}
+
+class _HomePageState extends State<HomePage> {
+  // Search
+  String _searchQuery = '';
+
+  // Category filter — null means "all"
+  DeweyCategory? _selectedCategory;
+
+  // Price filter
+  double _minPrice = 0;
+  double _maxPrice = 100;
+  final double _absoluteMin = 0;
+  final double _absoluteMax = 100;
+
+  // Sort
+  _SortOption _sortOption = _SortOption.none;
+
+  // Filtered + sorted product list
+  List<Product> get _filteredProducts {
+    List<Product> result = _placeholderProducts.where((p) {
+      final q = _searchQuery.toLowerCase();
+      final matchesSearch = q.isEmpty ||
+          p.name.toLowerCase().contains(q) ||
+          p.description.toLowerCase().contains(q);
+      final matchesCategory =
+          _selectedCategory == null || p.category == _selectedCategory;
+      final matchesPrice = p.price >= _minPrice && p.price <= _maxPrice;
+      return matchesSearch && matchesCategory && matchesPrice;
+    }).toList();
+
+    switch (_sortOption) {
+      case _SortOption.priceLowHigh:
+        result.sort((a, b) => a.price.compareTo(b.price));
+        break;
+      case _SortOption.priceHighLow:
+        result.sort((a, b) => b.price.compareTo(a.price));
+        break;
+      case _SortOption.none:
+        break;
+    }
+
+    return result;
+  }
+
+  void _onCategoryTapped(DeweyCategory cat) {
+    setState(() {
+      // Tapping the same category a second time deselects it
+      _selectedCategory = _selectedCategory == cat ? null : cat;
+    });
+    // Scroll down so the user sees the results update
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -130,12 +189,6 @@ class HomePage extends StatelessWidget {
                         ),
                       ),
                       PopupMenuItem(
-                        child: const Text('My Account',
-                            style: TextStyle(color: _dark)),
-                        onTap: () =>
-                            Navigator.pushNamed(context, '/profile'),
-                      ),
-                      PopupMenuItem(
                         child: const Text('Logout',
                             style: TextStyle(color: Colors.red)),
                         onTap: () async => await AuthService().signOut(),
@@ -174,8 +227,28 @@ class HomePage extends StatelessWidget {
           children: [
             _HeroSection(),
             _FeaturesSection(),
-            _FeaturedBooksSection(),
-            _CategoriesSection(),
+            // ── NEW: search + filter bar ──────────────────────────────────
+            _SearchFilterBar(
+              searchQuery: _searchQuery,
+              onSearchChanged: (val) => setState(() => _searchQuery = val),
+              sortOption: _sortOption,
+              onSortChanged: (val) => setState(() => _sortOption = val!),
+              minPrice: _minPrice,
+              maxPrice: _maxPrice,
+              absoluteMin: _absoluteMin,
+              absoluteMax: _absoluteMax,
+              onPriceChanged: (values) => setState(() {
+                _minPrice = values.start;
+                _maxPrice = values.end;
+              }),
+            ),
+            // ── Featured books now receives the filtered list ─────────────
+            _FeaturedBooksSection(products: _filteredProducts),
+            // ── Categories section — tapping filters the books above ──────
+            _CategoriesSection(
+              selectedCategory: _selectedCategory,
+              onCategoryTapped: _onCategoryTapped,
+            ),
             _Footer(),
           ],
         ),
@@ -184,53 +257,144 @@ class HomePage extends StatelessWidget {
   }
 }
 
-class _HeroSection extends StatelessWidget {
+// ─── Search + Filter Bar ─────────────────────────────────────────────────────
+class _SearchFilterBar extends StatelessWidget {
+  final String searchQuery;
+  final ValueChanged<String> onSearchChanged;
+  final _SortOption sortOption;
+  final ValueChanged<_SortOption?> onSortChanged;
+  final double minPrice;
+  final double maxPrice;
+  final double absoluteMin;
+  final double absoluteMax;
+  final ValueChanged<RangeValues> onPriceChanged;
+
+  const _SearchFilterBar({
+    required this.searchQuery,
+    required this.onSearchChanged,
+    required this.sortOption,
+    required this.onSortChanged,
+    required this.minPrice,
+    required this.maxPrice,
+    required this.absoluteMin,
+    required this.absoluteMax,
+    required this.onPriceChanged,
+  });
+
   @override
   Widget build(BuildContext context) {
     return Container(
-      decoration: const BoxDecoration(
-        image: DecorationImage(
-          image: AssetImage('assets/images/library.jpg'),
-          fit: BoxFit.cover,
-          colorFilter: ColorFilter.mode(
-            Color(0xAA000000),
-            BlendMode.darken,
-          ),
-        ),
-      ),
-      padding: const EdgeInsets.symmetric(vertical: 100, horizontal: 48),
+      color: _cream,
+      padding: const EdgeInsets.symmetric(vertical: 32, horizontal: 48),
       child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
-            '"There is no friend\nas loyal as a book."',
-            textAlign: TextAlign.center,
-            style: TextStyle(
-              color: _offWhite,
-              fontSize: 48,
-              fontWeight: FontWeight.w800,
-              letterSpacing: 1,
-              height: 1.2,
+          // ── Search bar ──────────────────────────────────────────────────
+          TextField(
+            onChanged: onSearchChanged,
+            style: const TextStyle(color: _dark),
+            decoration: InputDecoration(
+              hintText: 'Search by title or description…',
+              hintStyle: const TextStyle(color: _medium),
+              prefixIcon: const Icon(Icons.search, color: _medium),
+              suffixIcon: searchQuery.isNotEmpty
+                  ? IconButton(
+                      icon: const Icon(Icons.clear, color: _medium),
+                      onPressed: () => onSearchChanged(''),
+                    )
+                  : null,
+              filled: true,
+              fillColor: _offWhite,
+              contentPadding:
+                  const EdgeInsets.symmetric(vertical: 14, horizontal: 20),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(6),
+                borderSide: BorderSide.none,
+              ),
+              focusedBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(6),
+                borderSide: const BorderSide(color: _dark, width: 1.5),
+              ),
             ),
           ),
+
           const SizedBox(height: 20),
-          const Text(
-            '— Ernest Hemingway\n\nDiscover your next favourite read. Thousands of titles,\ndelivered to your door.',
-            textAlign: TextAlign.center,
-            style: TextStyle(color: _cream, fontSize: 18, height: 1.6),
-          ),
-          const SizedBox(height: 40),
-          ElevatedButton(
-            onPressed: () {},
-            style: ElevatedButton.styleFrom(
-              backgroundColor: _dark,
-              foregroundColor: _offWhite,
-              padding: const EdgeInsets.symmetric(
-                  horizontal: 40, vertical: 18),
-              shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(4)),
-            ),
-            child: const Text('Browse Books',
-                style: TextStyle(fontSize: 16, letterSpacing: 1)),
+
+          // ── Sort dropdown + price slider row ────────────────────────────
+          Wrap(
+            spacing: 24,
+            runSpacing: 16,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            children: [
+              // Sort dropdown
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Text('Sort by price:',
+                      style: TextStyle(
+                          color: _dark,
+                          fontWeight: FontWeight.w600,
+                          fontSize: 13)),
+                  const SizedBox(width: 10),
+                  DropdownButtonHideUnderline(
+                    child: DropdownButton<_SortOption>(
+                      value: sortOption,
+                      dropdownColor: _offWhite,
+                      style: const TextStyle(color: _dark, fontSize: 13),
+                      borderRadius: BorderRadius.circular(6),
+                      items: const [
+                        DropdownMenuItem(
+                          value: _SortOption.none,
+                          child: Text('Default'),
+                        ),
+                        DropdownMenuItem(
+                          value: _SortOption.priceLowHigh,
+                          child: Text('Low → High'),
+                        ),
+                        DropdownMenuItem(
+                          value: _SortOption.priceHighLow,
+                          child: Text('High → Low'),
+                        ),
+                      ],
+                      onChanged: onSortChanged,
+                    ),
+                  ),
+                ],
+              ),
+
+              // Price range slider
+              SizedBox(
+                width: 340,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Price range:  \$${minPrice.toStringAsFixed(0)} – \$${maxPrice.toStringAsFixed(0)}',
+                      style: const TextStyle(
+                          color: _dark,
+                          fontWeight: FontWeight.w600,
+                          fontSize: 13),
+                    ),
+                    SliderTheme(
+                      data: SliderTheme.of(context).copyWith(
+                        activeTrackColor: _dark,
+                        inactiveTrackColor: _taupe,
+                        thumbColor: _dark,
+                        overlayColor: _dark.withValues(alpha: 0.15),
+                        rangeThumbShape: const RoundRangeSliderThumbShape(
+                            enabledThumbRadius: 7),
+                      ),
+                      child: RangeSlider(
+                        min: absoluteMin,
+                        max: absoluteMax,
+                        values: RangeValues(minPrice, maxPrice),
+                        onChanged: onPriceChanged,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
           ),
         ],
       ),
@@ -238,54 +402,13 @@ class _HeroSection extends StatelessWidget {
   }
 }
 
-class _FeaturesSection extends StatelessWidget {
-  @override
-  Widget build(BuildContext context) {
-    final features = [
-      (Icons.local_shipping_outlined, 'Free Shipping',
-          'On all orders over \$30'),
-      (Icons.verified_outlined, 'Curated Selection',
-          'Hand-picked titles across every genre'),
-      (Icons.replay_outlined, 'Easy Returns',
-          '30-day hassle-free return policy'),
-      (Icons.headset_mic_outlined, '24/7 Support',
-          'We\'re here whenever you need us'),
-    ];
-
-    return Container(
-      color: _offWhite,
-      padding: const EdgeInsets.symmetric(vertical: 56, horizontal: 48),
-      child: Wrap(
-        spacing: 32,
-        runSpacing: 32,
-        alignment: WrapAlignment.center,
-        children: features
-            .map((f) => SizedBox(
-                  width: 220,
-                  child: Column(
-                    children: [
-                      Icon(f.$1, color: _medium, size: 36),
-                      const SizedBox(height: 12),
-                      Text(f.$2,
-                          style: const TextStyle(
-                              color: _dark,
-                              fontSize: 16,
-                              fontWeight: FontWeight.w700)),
-                      const SizedBox(height: 6),
-                      Text(f.$3,
-                          textAlign: TextAlign.center,
-                          style: const TextStyle(
-                              color: _medium, fontSize: 13)),
-                    ],
-                  ),
-                ))
-            .toList(),
-      ),
-    );
-  }
-}
-
+// ─── Featured Books Section ───────────────────────────────────────────────────
+// Now accepts a filtered product list instead of using the constant directly.
 class _FeaturedBooksSection extends StatelessWidget {
+  final List<Product> products;
+
+  const _FeaturedBooksSection({required this.products});
+
   @override
   Widget build(BuildContext context) {
     return Container(
@@ -308,20 +431,46 @@ class _FeaturedBooksSection extends StatelessWidget {
             style: TextStyle(color: _medium, fontSize: 15),
           ),
           const SizedBox(height: 40),
-          Wrap(
-            spacing: 24,
-            runSpacing: 24,
-            alignment: WrapAlignment.center,
-            children: _placeholderProducts
-                .map((p) => _ProductCard(product: p))
-                .toList(),
-          ),
+
+          // ── Empty state ─────────────────────────────────────────────────
+          if (products.isEmpty)
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 48),
+              child: Column(
+                children: [
+                  Icon(Icons.search_off_rounded, color: _taupe, size: 64),
+                  const SizedBox(height: 16),
+                  const Text(
+                    'No products found.',
+                    style: TextStyle(
+                        color: _dark,
+                        fontSize: 20,
+                        fontWeight: FontWeight.w700),
+                  ),
+                  const SizedBox(height: 8),
+                  const Text(
+                    'Try a different search term, category, or price range.',
+                    style: TextStyle(color: _medium, fontSize: 14),
+                  ),
+                ],
+              ),
+            )
+          else
+            Wrap(
+              spacing: 24,
+              runSpacing: 24,
+              alignment: WrapAlignment.center,
+              children: products
+                  .map((p) => _ProductCard(product: p))
+                  .toList(),
+            ),
         ],
       ),
     );
   }
 }
 
+// ─── Product Card (unchanged) ─────────────────────────────────────────────────
 class _ProductCard extends StatelessWidget {
   final Product product;
 
@@ -405,18 +554,30 @@ class _ProductCard extends StatelessWidget {
                 SizedBox(
                   width: double.infinity,
                   child: ElevatedButton(
-                    onPressed: product.stockQuantity > 0 ? () async {
-                      try {
-                        await CartService().updateQuantity(productId: product.id, requestedQuantity: 1);
-                        if (context.mounted) {
-                          ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('${product.name} added to cart!'), backgroundColor: Colors.green));
-                        }
-                      } catch (e) {
-                         if (context.mounted) {
-                            ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Failed to add ${product.name} '), backgroundColor: Colors.red));
-                         }
-                      }
-                    } : null,
+                    onPressed: product.stockQuantity > 0
+                        ? () async {
+                            try {
+                              await CartService().updateQuantity(
+                                  productId: product.id,
+                                  requestedQuantity: 1);
+                              if (context.mounted) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(
+                                        content: Text(
+                                            '${product.name} added to cart!'),
+                                        backgroundColor: Colors.green));
+                              }
+                            } catch (e) {
+                              if (context.mounted) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(
+                                        content: Text(
+                                            'Failed to add ${product.name}'),
+                                        backgroundColor: Colors.red));
+                              }
+                            }
+                          }
+                        : null,
                     style: ElevatedButton.styleFrom(
                       backgroundColor: _dark,
                       foregroundColor: _offWhite,
@@ -438,20 +599,30 @@ class _ProductCard extends StatelessWidget {
   }
 }
 
+// ─── Categories Section ───────────────────────────────────────────────────────
+// Now accepts selectedCategory + callback so tapping filters the books.
 class _CategoriesSection extends StatelessWidget {
+  final DeweyCategory? selectedCategory;
+  final ValueChanged<DeweyCategory> onCategoryTapped;
+
+  const _CategoriesSection({
+    required this.selectedCategory,
+    required this.onCategoryTapped,
+  });
+
   @override
   Widget build(BuildContext context) {
     final categories = [
-      ('000s · General Works',  Icons.public_outlined,                 const Color(0xFF5C7A9E)),
-      ('100s · Philosophy',     Icons.psychology_outlined,             const Color(0xFF7B5EA7)),
-      ('200s · Religion',       Icons.temple_hindu_outlined,           const Color(0xFFB07D4A)),
-      ('300s · Social Sciences',Icons.groups_outlined,                 const Color(0xFF4A8B6F)),
-      ('400s · Language',       Icons.translate_outlined,              const Color(0xFF3A8FA8)),
-      ('500s · Pure Science',   Icons.science_outlined,                const Color(0xFF2E7D6B)),
-      ('600s · Technology',     Icons.precision_manufacturing_outlined,const Color(0xFF5A6E8A)),
-      ('700s · Arts & Recreation',Icons.palette_outlined,              const Color(0xFFC0534A)),
-      ('800s · Literature',     Icons.auto_stories_outlined,           const Color(0xFF8D7B68)),
-      ('900s · History & Geography',Icons.travel_explore_outlined,     const Color(0xFF7A6E4A)),
+      (DeweyCategory.generalWorks,   '000s · General Works',         Icons.public_outlined,                  const Color(0xFF5C7A9E)),
+      (DeweyCategory.philosophy,     '100s · Philosophy',            Icons.psychology_outlined,              const Color(0xFF7B5EA7)),
+      (DeweyCategory.religion,       '200s · Religion',              Icons.temple_hindu_outlined,            const Color(0xFFB07D4A)),
+      (DeweyCategory.socialSciences, '300s · Social Sciences',       Icons.groups_outlined,                  const Color(0xFF4A8B6F)),
+      (DeweyCategory.language,       '400s · Language',              Icons.translate_outlined,               const Color(0xFF3A8FA8)),
+      (DeweyCategory.pureScience,    '500s · Pure Science',          Icons.science_outlined,                 const Color(0xFF2E7D6B)),
+      (DeweyCategory.technology,     '600s · Technology',            Icons.precision_manufacturing_outlined, const Color(0xFF5A6E8A)),
+      (DeweyCategory.arts,           '700s · Arts & Recreation',     Icons.palette_outlined,                 const Color(0xFFC0534A)),
+      (DeweyCategory.literature,     '800s · Literature',            Icons.auto_stories_outlined,            const Color(0xFF8D7B68)),
+      (DeweyCategory.history,        '900s · History & Geography',   Icons.travel_explore_outlined,          const Color(0xFF7A6E4A)),
     ];
 
     return Container(
@@ -468,47 +639,80 @@ class _CategoriesSection extends StatelessWidget {
               letterSpacing: 1,
             ),
           ),
+          const SizedBox(height: 8),
+          const Text(
+            'Tap a category to filter the books above',
+            style: TextStyle(color: _medium, fontSize: 14),
+          ),
           const SizedBox(height: 40),
           Wrap(
             spacing: 20,
             runSpacing: 20,
             alignment: WrapAlignment.center,
-            children: categories
-                .map((cat) => InkWell(
-                      onTap: () {},
-                      borderRadius: BorderRadius.circular(8),
-                      child: Container(
-                        width: 160,
-                        height: 130,
-                        decoration: BoxDecoration(
-                          color: cat.$3.withValues(alpha: 0.12),
-                          borderRadius: BorderRadius.circular(8),
-                          border: Border.all(
-                              color: cat.$3.withValues(alpha: 0.4), width: 1.5),
-                        ),
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Icon(cat.$2, color: cat.$3, size: 36),
-                            const SizedBox(height: 12),
-                            Padding(
-                              padding:
-                                  const EdgeInsets.symmetric(horizontal: 8),
-                              child: Text(
-                                cat.$1,
-                                textAlign: TextAlign.center,
-                                style: TextStyle(
-                                  color: cat.$3,
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.w700,
-                                ),
-                              ),
-                            ),
-                          ],
+            children: categories.map((cat) {
+              final isSelected = selectedCategory == cat.$1;
+              return InkWell(
+                onTap: () => onCategoryTapped(cat.$1),
+                borderRadius: BorderRadius.circular(8),
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 200),
+                  width: 160,
+                  height: 130,
+                  decoration: BoxDecoration(
+                    // Solid background when selected, tinted when not
+                    color: isSelected
+                        ? cat.$4.withValues(alpha: 0.25)
+                        : cat.$4.withValues(alpha: 0.10),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(
+                      color: isSelected
+                          ? cat.$4
+                          : cat.$4.withValues(alpha: 0.4),
+                      width: isSelected ? 2.5 : 1.5,
+                    ),
+                    boxShadow: isSelected
+                        ? [
+                            BoxShadow(
+                              color: cat.$4.withValues(alpha: 0.30),
+                              blurRadius: 8,
+                              offset: const Offset(0, 3),
+                            )
+                          ]
+                        : [],
+                  ),
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(cat.$3, color: cat.$4, size: isSelected ? 40 : 36),
+                      const SizedBox(height: 12),
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 8),
+                        child: Text(
+                          cat.$2,
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            color: cat.$4,
+                            fontSize: 12,
+                            fontWeight: isSelected
+                                ? FontWeight.w800
+                                : FontWeight.w700,
+                          ),
                         ),
                       ),
-                    ))
-                .toList(),
+                      if (isSelected) ...[
+                        const SizedBox(height: 6),
+                        Text(
+                          'Tap to clear',
+                          style: TextStyle(
+                              color: cat.$4.withValues(alpha: 0.7),
+                              fontSize: 10),
+                        ),
+                      ]
+                    ],
+                  ),
+                ),
+              );
+            }).toList(),
           ),
         ],
       ),
@@ -516,6 +720,110 @@ class _CategoriesSection extends StatelessWidget {
   }
 }
 
+// ─── Hero Section (unchanged) ─────────────────────────────────────────────────
+class _HeroSection extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: const BoxDecoration(
+        image: DecorationImage(
+          image: AssetImage('assets/images/library.jpg'),
+          fit: BoxFit.cover,
+          colorFilter: ColorFilter.mode(
+            Color(0xAA000000),
+            BlendMode.darken,
+          ),
+        ),
+      ),
+      padding: const EdgeInsets.symmetric(vertical: 100, horizontal: 48),
+      child: Column(
+        children: [
+          const Text(
+            '"There is no friend\nas loyal as a book."',
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              color: _offWhite,
+              fontSize: 48,
+              fontWeight: FontWeight.w800,
+              letterSpacing: 1,
+              height: 1.2,
+            ),
+          ),
+          const SizedBox(height: 20),
+          const Text(
+            '— Ernest Hemingway\n\nDiscover your next favourite read. Thousands of titles,\ndelivered to your door.',
+            textAlign: TextAlign.center,
+            style: TextStyle(color: _cream, fontSize: 18, height: 1.6),
+          ),
+          const SizedBox(height: 40),
+          ElevatedButton(
+            onPressed: () {},
+            style: ElevatedButton.styleFrom(
+              backgroundColor: _dark,
+              foregroundColor: _offWhite,
+              padding:
+                  const EdgeInsets.symmetric(horizontal: 40, vertical: 18),
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(4)),
+            ),
+            child: const Text('Browse Books',
+                style: TextStyle(fontSize: 16, letterSpacing: 1)),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ─── Features Section (unchanged) ────────────────────────────────────────────
+class _FeaturesSection extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    final features = [
+      (Icons.local_shipping_outlined, 'Free Shipping',
+          'On all orders over \$30'),
+      (Icons.verified_outlined, 'Curated Selection',
+          'Hand-picked titles across every genre'),
+      (Icons.replay_outlined, 'Easy Returns',
+          '30-day hassle-free return policy'),
+      (Icons.headset_mic_outlined, '24/7 Support',
+          'We\'re here whenever you need us'),
+    ];
+
+    return Container(
+      color: _offWhite,
+      padding: const EdgeInsets.symmetric(vertical: 56, horizontal: 48),
+      child: Wrap(
+        spacing: 32,
+        runSpacing: 32,
+        alignment: WrapAlignment.center,
+        children: features
+            .map((f) => SizedBox(
+                  width: 220,
+                  child: Column(
+                    children: [
+                      Icon(f.$1, color: _medium, size: 36),
+                      const SizedBox(height: 12),
+                      Text(f.$2,
+                          style: const TextStyle(
+                              color: _dark,
+                              fontSize: 16,
+                              fontWeight: FontWeight.w700)),
+                      const SizedBox(height: 6),
+                      Text(f.$3,
+                          textAlign: TextAlign.center,
+                          style:
+                              const TextStyle(color: _medium, fontSize: 13)),
+                    ],
+                  ),
+                ))
+            .toList(),
+      ),
+    );
+  }
+}
+
+// ─── Footer (unchanged) ───────────────────────────────────────────────────────
 class _Footer extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
