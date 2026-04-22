@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../services/auth_service.dart';
 import '../services/cart_service.dart';
+import '../services/product_service.dart';
 import '../models/product.dart';
 import 'product_page.dart';
 
@@ -10,70 +11,6 @@ const _medium = Color(0xFFA4907C);
 const _taupe = Color(0xFFC8B6A6);
 const _cream = Color(0xFFF1DEC9);
 const _offWhite = Color(0xFFFAF5EF);
-
-// TODO: replace with Firestore query
-const List<Product> _placeholderProducts = [
-  Product(
-    id: '1',
-    name: 'The Midnight Library',
-    description: 'A novel about infinite possibilities and second chances, by Matt Haig.',
-    price: 14.99,
-    warrantyInfo: 'Satisfaction guaranteed or full refund within 30 days.',
-    distributor: 'Penguin Random House',
-    stockQuantity: 42,
-    category: DeweyCategory.literature,
-  ),
-  Product(
-    id: '2',
-    name: 'Atomic Habits',
-    description: 'An easy and proven way to build good habits and break bad ones, by James Clear.',
-    price: 16.99,
-    warrantyInfo: 'Satisfaction guaranteed or full refund within 30 days.',
-    distributor: 'Penguin Random House',
-    stockQuantity: 78,
-    category: DeweyCategory.philosophy,
-  ),
-  Product(
-    id: '3',
-    name: 'Dune',
-    description: 'Frank Herbert\'s epic science fiction saga set on the desert planet Arrakis.',
-    price: 12.99,
-    warrantyInfo: 'Satisfaction guaranteed or full refund within 30 days.',
-    distributor: 'Ace Books',
-    stockQuantity: 55,
-    category: DeweyCategory.pureScience,
-  ),
-  Product(
-    id: '4',
-    name: '1984',
-    description: 'George Orwell\'s haunting vision of a totalitarian future society.',
-    price: 10.99,
-    warrantyInfo: 'Satisfaction guaranteed or full refund within 30 days.',
-    distributor: 'Signet Classic',
-    stockQuantity: 91,
-    category: DeweyCategory.socialSciences,
-  ),
-  Product(
-    id: '5',
-    name: 'The Alchemist',
-    description: 'Paulo Coelho\'s beloved novel about following your dreams and listening to your heart.',
-    price: 11.99,
-    warrantyInfo: 'Satisfaction guaranteed or full refund within 30 days.',
-    distributor: 'HarperCollins',
-    stockQuantity: 63,
-    category: DeweyCategory.literature,
-  ),
-  Product(
-    id: '6',
-    name: 'Sapiens',
-    description: 'A brief history of humankind by Yuval Noah Harari.',
-    price: 17.99,
-    warrantyInfo: 'Satisfaction guaranteed or full refund within 30 days.',
-    distributor: 'Harper Perennial',
-    stockQuantity: 37,
-    category: DeweyCategory.history,
-  ),
-];
 
 const Map<DeweyCategory, Color> _categoryColors = {
   DeweyCategory.generalWorks:   Color(0xFF5C7A9E),
@@ -100,6 +37,11 @@ class HomePage extends StatefulWidget {
 }
 
 class _HomePageState extends State<HomePage> {
+  // Products from backend
+  List<Product> _allProducts = [];
+  bool _isLoading = true;
+  final ProductService _productService = ProductService();
+
   // Search
   String _searchQuery = '';
 
@@ -115,9 +57,38 @@ class _HomePageState extends State<HomePage> {
   // Sort
   _SortOption _sortOption = _SortOption.none;
 
+  @override
+  void initState() {
+    super.initState();
+    _loadProducts();
+  }
+
+  Future<void> _loadProducts() async {
+    setState(() => _isLoading = true);
+    try {
+      final products = await _productService.fetchAllProducts();
+      if (mounted) {
+        setState(() {
+          _allProducts = products;
+          _isLoading = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() => _isLoading = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to load products: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
   // Filtered + sorted product list
   List<Product> get _filteredProducts {
-    List<Product> result = _placeholderProducts.where((p) {
+    List<Product> result = _allProducts.where((p) {
       final q = _searchQuery.toLowerCase();
       final matchesSearch = q.isEmpty ||
           p.name.toLowerCase().contains(q) ||
@@ -228,10 +199,14 @@ class _HomePageState extends State<HomePage> {
           ),
         ],
       ),
-      body: SingleChildScrollView(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
+      body: _isLoading
+          ? const Center(
+              child: CircularProgressIndicator(color: _dark),
+            )
+          : SingleChildScrollView(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
             _HeroSection(),
             _FeaturesSection(),
             // ── NEW: search + filter bar ──────────────────────────────────
@@ -252,14 +227,14 @@ class _HomePageState extends State<HomePage> {
             // ── Featured books now receives the filtered list ─────────────
             _FeaturedBooksSection(products: _filteredProducts),
             // ── Categories section — tapping filters the books above ──────
-            _CategoriesSection(
-              selectedCategory: _selectedCategory,
-              onCategoryTapped: _onCategoryTapped,
+                  _CategoriesSection(
+                    selectedCategory: _selectedCategory,
+                    onCategoryTapped: _onCategoryTapped,
+                  ),
+                  _Footer(),
+                ],
+              ),
             ),
-            _Footer(),
-          ],
-        ),
-      ),
     );
   }
 }

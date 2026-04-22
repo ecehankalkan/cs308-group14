@@ -28,6 +28,14 @@ urlpatterns = [
     # Checkout & Payment
     path('checkout/', views.checkout_view, name='checkout'),
 
+    # Delivery Addresses
+    path('addresses/', views.DeliveryAddressListView.as_view(), name='address_list'),
+    path('addresses/<int:pk>/', views.DeliveryAddressDetailView.as_view(), name='address_detail'),
+
+    # Payment Cards (MOCK DATA ONLY - for testing)
+    path('payment-cards/', views.PaymentCardListView.as_view(), name='payment_card_list'),
+    path('payment-cards/<int:pk>/', views.PaymentCardDetailView.as_view(), name='payment_card_detail'),
+
     # Testing Endpoint for Invoices & Emails (SCRUM 54-56)
     path('test-invoice/', views.test_invoice_email, name='test_invoice'),
 ]

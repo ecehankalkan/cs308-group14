@@ -164,3 +164,48 @@ class Cart(models.Model):
     def __str__(self):
         owner = self.customer.name if self.customer else f"Guest ({self.session_key})"
         return f'{owner} — {self.product.name} x{self.quantity}'
+
+
+# ---------------------------------------------------------------------------
+# Delivery Address
+# ---------------------------------------------------------------------------
+
+class DeliveryAddress(models.Model):
+    customer       = models.ForeignKey(Customer, on_delete=models.CASCADE, related_name='delivery_addresses')
+    recipient_name = models.CharField(max_length=255)
+    street         = models.CharField(max_length=255)
+    city           = models.CharField(max_length=100)
+    zip_code       = models.CharField(max_length=20)
+    country        = models.CharField(max_length=100)
+    is_default     = models.BooleanField(default=False)
+    created_at     = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        indexes = [models.Index(fields=['customer'])]
+
+    def __str__(self):
+        return f'{self.recipient_name} — {self.street}, {self.city}'
+
+
+# ---------------------------------------------------------------------------
+# Payment Card (MOCK DATA FOR TESTING ONLY - NEVER USE IN PRODUCTION)
+# ---------------------------------------------------------------------------
+
+class PaymentCard(models.Model):
+    """
+    WARNING: This stores fake/test credit card data for demo purposes only.
+    NEVER store real credit card numbers in production.
+    Use payment processors like Stripe/PayPal instead.
+    """
+    customer      = models.ForeignKey(Customer, on_delete=models.CASCADE, related_name='payment_cards')
+    card_number   = models.CharField(max_length=19)  # MOCK DATA ONLY
+    holder_name   = models.CharField(max_length=255)
+    expiry_date   = models.CharField(max_length=7)  # Format: MM/YYYY
+    is_default    = models.BooleanField(default=False)
+    created_at    = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        indexes = [models.Index(fields=['customer'])]
+
+    def __str__(self):
+        return f'{self.holder_name} — **** **** **** {self.card_number[-4:]}'

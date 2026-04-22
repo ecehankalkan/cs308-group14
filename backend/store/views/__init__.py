@@ -5,6 +5,7 @@ from .cart_views import CartView, CartItemView
 from .guest_cart_views import GuestCartView, GuestCartItemView
 from .test_views import test_invoice_email
 from .payment_views import checkout_view
+from .address_views import DeliveryAddressListView, DeliveryAddressDetailView, PaymentCardListView, PaymentCardDetailView
 
 __all__ = [
     'RegisterView',
@@ -24,4 +25,8 @@ __all__ = [
     'test_invoice_email',
     'OrderListView',
     'checkout_view',
+    'DeliveryAddressListView',
+    'DeliveryAddressDetailView',
+    'PaymentCardListView',
+    'PaymentCardDetailView',
 ]

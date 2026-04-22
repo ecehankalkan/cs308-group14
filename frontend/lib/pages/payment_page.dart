@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import '../services/auth_service.dart';
+import '../services/payment_service.dart';
 import 'payment_success_page.dart';
 
 const _dark = Color(0xFF8D7B68);
@@ -62,13 +63,15 @@ class PaymentPage extends StatefulWidget {
 }
 
 class _PaymentPageState extends State<PaymentPage> {
-  final List<DeliveryAddress> _savedAddresses = [];
+  List<DeliveryAddress> _savedAddresses = [];
   String? _selectedAddressId;
   bool _showAddAddress = false;
+  bool _isLoadingAddresses = true;
 
-  final List<PaymentCard> _savedCards = [];
+  List<PaymentCard> _savedCards = [];
   String? _selectedCardId;
   bool _showAddCard = false;
+  bool _isLoadingCards = true;
 
   final _addressFormKey = GlobalKey<FormState>();
   final _recipientNameController = TextEditingController();
@@ -85,6 +88,58 @@ class _PaymentPageState extends State<PaymentPage> {
   final _cvvController = TextEditingController();
   bool _saveCard = false;
   bool _isProcessing = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadSavedData();
+  }
+
+  Future<void> _loadSavedData() async {
+    try {
+      final addresses = await PaymentService.fetchAddresses();
+      final cards = await PaymentService.fetchPaymentCards();
+
+      if (mounted) {
+        setState(() {
+          _savedAddresses = addresses.map((data) => DeliveryAddress(
+            id: data['id'].toString(),
+            recipientName: data['recipient_name'] ?? '',
+            street: data['street'] ?? '',
+            city: data['city'] ?? '',
+            zipCode: data['zip_code'] ?? '',
+            country: data['country'] ?? '',
+            isDefault: data['is_default'] ?? false,
+          )).toList();
+
+          _savedCards = cards.map((data) => PaymentCard(
+            id: data['id'].toString(),
+            cardNumber: data['card_number'] ?? '',
+            holderName: data['holder_name'] ?? '',
+            expiryDate: data['expiry_date'] ?? '',
+            isDefault: data['is_default'] ?? false,
+          )).toList();
+
+          if (_savedAddresses.isNotEmpty) {
+            _selectedAddressId = _savedAddresses.firstWhere((a) => a.isDefault, orElse: () => _savedAddresses.first).id;
+          }
+          if (_savedCards.isNotEmpty) {
+            _selectedCardId = _savedCards.firstWhere((c) => c.isDefault, orElse: () => _savedCards.first).id;
+          }
+
+          _isLoadingAddresses = false;
+          _isLoadingCards = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _isLoadingAddresses = false;
+          _isLoadingCards = false;
+        });
+      }
+    }
+  }
 
   @override
   void dispose() {
@@ -148,6 +203,64 @@ class _PaymentPageState extends State<PaymentPage> {
     setState(() => _isProcessing = true);
 
     try {
+      // Save address to backend if requested
+      if (_showAddAddress && _saveAddress) {
+        final savedData = await PaymentService.saveAddress(
+          recipientName: _recipientNameController.text,
+          street: _streetController.text,
+          city: _cityController.text,
+          zipCode: _zipCodeController.text,
+          country: _countryController.text,
+          isDefault: _savedAddresses.isEmpty,
+        );
+        
+        if (savedData != null) {
+          final newAddress = DeliveryAddress(
+            id: savedData['id'].toString(),
+            recipientName: savedData['recipient_name'],
+            street: savedData['street'],
+            city: savedData['city'],
+            zipCode: savedData['zip_code'],
+            country: savedData['country'],
+            isDefault: savedData['is_default'],
+          );
+          setState(() {
+            _savedAddresses.add(newAddress);
+            _selectedAddressId = newAddress.id;
+            _showAddAddress = false;
+          });
+        } else {
+          throw Exception('Failed to save address');
+        }
+      }
+
+      // Save card to backend if requested (MOCK DATA ONLY)
+      if (_showAddCard && _saveCard) {
+        final savedData = await PaymentService.savePaymentCard(
+          cardNumber: _cardNumberController.text.replaceAll(' ', ''),
+          holderName: _holderNameController.text,
+          expiryDate: _expiryController.text,
+          isDefault: _savedCards.isEmpty,
+        );
+        
+        if (savedData != null) {
+          final newCard = PaymentCard(
+            id: savedData['id'].toString(),
+            cardNumber: savedData['card_number'],
+            holderName: savedData['holder_name'],
+            expiryDate: savedData['expiry_date'],
+            isDefault: savedData['is_default'],
+          );
+          setState(() {
+            _savedCards.add(newCard);
+            _selectedCardId = newCard.id;
+            _showAddCard = false;
+          });
+        } else {
+          throw Exception('Failed to save card');
+        }
+      }
+
       // Get Django JWT token from AuthService
       final headers = await AuthService.getAuthHeaders();
       
