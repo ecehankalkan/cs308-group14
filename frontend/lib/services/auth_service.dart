@@ -56,8 +56,6 @@ class AuthService {
     required String password,
     required String name,
     required String surname,
-    required String taxId,
-    required String homeAddress,
     required BuildContext context,
   }) async {
     try {
@@ -75,8 +73,6 @@ class AuthService {
           'email':        email,
           'password':     password,
           'name':         '$name $surname',
-          'tax_id':       taxId,
-          'home_address': homeAddress,
         }),
       );
 
