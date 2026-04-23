@@ -57,6 +57,9 @@ class _HomePageState extends State<HomePage> {
   // Sort
   _SortOption _sortOption = _SortOption.none;
 
+  // Key to scroll to categories section
+  final GlobalKey _categoriesKey = GlobalKey();
+
   @override
   void initState() {
     super.initState();
@@ -119,6 +122,17 @@ class _HomePageState extends State<HomePage> {
       _selectedCategory = _selectedCategory == cat ? null : cat;
     });
     // Scroll down so the user sees the results update
+  }
+
+  void _scrollToCategories() {
+    final context = _categoriesKey.currentContext;
+    if (context != null) {
+      Scrollable.ensureVisible(
+        context,
+        duration: const Duration(milliseconds: 800),
+        curve: Curves.easeInOut,
+      );
+    }
   }
 
   @override
@@ -207,7 +221,7 @@ class _HomePageState extends State<HomePage> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-            _HeroSection(),
+            _HeroSection(onBrowseBooks: _scrollToCategories),
             _FeaturesSection(),
             Container(
               color: _offWhite,
@@ -243,6 +257,7 @@ class _HomePageState extends State<HomePage> {
             ),
             // ── Categories section — tapping filters the books below ──────
                   _CategoriesSection(
+                    key: _categoriesKey,
                     selectedCategory: _selectedCategory,
                     onCategoryTapped: _onCategoryTapped,
                   ),
@@ -619,6 +634,7 @@ class _CategoriesSection extends StatelessWidget {
   final ValueChanged<DeweyCategory> onCategoryTapped;
 
   const _CategoriesSection({
+    super.key,
     required this.selectedCategory,
     required this.onCategoryTapped,
   });
@@ -733,8 +749,12 @@ class _CategoriesSection extends StatelessWidget {
   }
 }
 
-// ─── Hero Section (unchanged) ─────────────────────────────────────────────────
+// ─── Hero Section ─────────────────────────────────────────────────────────────
 class _HeroSection extends StatelessWidget {
+  final VoidCallback onBrowseBooks;
+
+  const _HeroSection({required this.onBrowseBooks});
+
   @override
   Widget build(BuildContext context) {
     return Container(
@@ -770,7 +790,7 @@ class _HeroSection extends StatelessWidget {
           ),
           const SizedBox(height: 40),
           ElevatedButton(
-            onPressed: () {},
+            onPressed: onBrowseBooks,
             style: ElevatedButton.styleFrom(
               backgroundColor: _dark,
               foregroundColor: _offWhite,

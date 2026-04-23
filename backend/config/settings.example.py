@@ -97,6 +97,13 @@ SIMPLE_JWT = {
 
 # Allow Flutter web app to call the API
 CORS_ALLOW_ALL_ORIGINS = True
+CORS_ALLOW_CREDENTIALS = True
+CORS_EXPOSE_HEADERS = ['X-Session-Id']
+
+# Session configuration for guest cart
+SESSION_COOKIE_HTTPONLY = False
+SESSION_COOKIE_SAMESITE = 'Lax'
+SESSION_SAVE_EVERY_REQUEST = True
 
 LANGUAGE_CODE = 'en-us'
 TIME_ZONE = 'UTC'
