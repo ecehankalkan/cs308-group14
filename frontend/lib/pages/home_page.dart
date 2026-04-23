@@ -209,7 +209,44 @@ class _HomePageState extends State<HomePage> {
                 children: [
             _HeroSection(),
             _FeaturesSection(),
-            // ── NEW: search + filter bar ──────────────────────────────────
+            Container(
+              color: _offWhite,
+              padding: const EdgeInsets.symmetric(horizontal: 48, vertical: 8),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Container(
+                      height: 1,
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          colors: [Colors.transparent, _taupe],
+                        ),
+                      ),
+                    ),
+                  ),
+                  const Padding(
+                    padding: EdgeInsets.symmetric(horizontal: 16),
+                    child: Icon(Icons.auto_stories_outlined, color: _taupe, size: 20),
+                  ),
+                  Expanded(
+                    child: Container(
+                      height: 1,
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          colors: [_taupe, Colors.transparent],
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            // ── Categories section — tapping filters the books below ──────
+                  _CategoriesSection(
+                    selectedCategory: _selectedCategory,
+                    onCategoryTapped: _onCategoryTapped,
+                  ),
+            // ── Search + filter bar ───────────────────────────────────────
             _SearchFilterBar(
               searchQuery: _searchQuery,
               onSearchChanged: (val) => setState(() => _searchQuery = val),
@@ -226,11 +263,6 @@ class _HomePageState extends State<HomePage> {
             ),
             // ── Featured books now receives the filtered list ─────────────
             _FeaturedBooksSection(products: _filteredProducts),
-            // ── Categories section — tapping filters the books above ──────
-                  _CategoriesSection(
-                    selectedCategory: _selectedCategory,
-                    onCategoryTapped: _onCategoryTapped,
-                  ),
                   _Footer(),
                 ],
               ),
@@ -395,24 +427,10 @@ class _FeaturedBooksSection extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       color: _cream,
-      padding: const EdgeInsets.symmetric(vertical: 64, horizontal: 48),
+      padding: const EdgeInsets.only(top: 24, bottom: 64, left: 48, right: 48),
       child: Column(
         children: [
-          const Text(
-            'Featured Books',
-            style: TextStyle(
-              color: _dark,
-              fontSize: 32,
-              fontWeight: FontWeight.w700,
-              letterSpacing: 1,
-            ),
-          ),
-          const SizedBox(height: 8),
-          const Text(
-            'Handpicked favourites from our collection',
-            style: TextStyle(color: _medium, fontSize: 15),
-          ),
-          const SizedBox(height: 40),
+          const SizedBox(height: 0),
 
           // ── Empty state ─────────────────────────────────────────────────
           if (products.isEmpty)
@@ -626,7 +644,7 @@ class _CategoriesSection extends StatelessWidget {
       child: Column(
         children: [
           const Text(
-            'Browse by Category',
+            'Featured Books',
             style: TextStyle(
               color: _dark,
               fontSize: 32,
@@ -636,7 +654,7 @@ class _CategoriesSection extends StatelessWidget {
           ),
           const SizedBox(height: 8),
           const Text(
-            'Tap a category to filter the books above',
+            'Browse through our handpicked favourites',
             style: TextStyle(color: _medium, fontSize: 14),
           ),
           const SizedBox(height: 40),
