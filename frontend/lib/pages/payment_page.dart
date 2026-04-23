@@ -94,6 +94,7 @@ class _PaymentPageState extends State<PaymentPage> {
   final _cvvController = TextEditingController();
   bool _saveCard = false;
   bool _isProcessing = false;
+  bool _isLoading = true;
 
   @override
   void initState() {
@@ -134,11 +135,12 @@ class _PaymentPageState extends State<PaymentPage> {
           if (_savedCards.isNotEmpty) {
             _selectedCardId = _savedCards.firstWhere((c) => c.isDefault, orElse: () => _savedCards.first).id;
           }
+          _isLoading = false;
         });
       }
     } catch (e) {
       if (mounted) {
-        setState(() {});
+        setState(() => _isLoading = false);
       }
     }
   }
@@ -372,7 +374,9 @@ class _PaymentPageState extends State<PaymentPage> {
           ),
         ),
       ),
-      body: SingleChildScrollView(
+      body: _isLoading
+          ? const Center(child: CircularProgressIndicator(color: _dark))
+          : SingleChildScrollView(
         padding: const EdgeInsets.all(20),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -407,6 +411,7 @@ class _PaymentPageState extends State<PaymentPage> {
       ),
     );
   }
+
 
   Widget _buildAmountCard() {
     return Container(
