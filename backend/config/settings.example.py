@@ -30,8 +30,8 @@ INSTALLED_APPS = [
 MIDDLEWARE = [
     'corsheaders.middleware.CorsMiddleware',
     'django.middleware.security.SecurityMiddleware',
+    'store.middleware.SessionHeaderMiddleware',  # Must be BEFORE SessionMiddleware
     'django.contrib.sessions.middleware.SessionMiddleware',
-    'store.middleware.SessionHeaderMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
@@ -95,8 +95,11 @@ SIMPLE_JWT = {
     'REFRESH_TOKEN_LIFETIME': timedelta(days=7),
 }
 
-# Allow Flutter web app to call the API
-CORS_ALLOW_ALL_ORIGINS = True
+# Allow Flutter web app to call the API (localhost on any port for development)
+CORS_ALLOWED_ORIGIN_REGEXES = [
+    r"^http://localhost:\d+$",
+    r"^http://127\.0\.0\.1:\d+$",
+]
 CORS_ALLOW_CREDENTIALS = True
 CORS_EXPOSE_HEADERS = ['X-Session-Id']
 
