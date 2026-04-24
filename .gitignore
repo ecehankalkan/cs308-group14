@@ -1,5 +1,5 @@
 # Django sensitive settings — never commit real credentials
-backend/config/settings.py
+# settings.py has been refactored to use .env and is now safe to track
 database_credentials_for_team.txt
 
 # Python

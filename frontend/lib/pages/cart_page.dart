@@ -176,14 +176,21 @@ class _CartPageState extends State<CartPage> {
     );
   }
 
+  bool _canPop = false;
+
   @override
   Widget build(BuildContext context) {
     return PopScope(
-      canPop: false,
+      canPop: _canPop,
       onPopInvoked: (didPop) async {
         if (didPop) return;
         await _syncCartWithBackend();
-        if (context.mounted) Navigator.pop(context);
+        if (context.mounted) {
+          setState(() => _canPop = true);
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (context.mounted) Navigator.pop(context);
+          });
+        }
       },
       child: Scaffold(
         backgroundColor: _offWhite,
@@ -192,9 +199,8 @@ class _CartPageState extends State<CartPage> {
           elevation: 0,
           leading: IconButton(
             icon: const Icon(Icons.arrow_back, color: _offWhite),
-            onPressed: () async {
-              await _syncCartWithBackend();
-              if (context.mounted) Navigator.pop(context);
+            onPressed: () {
+              Navigator.maybePop(context);
             },
           ),
         title: const Text(
@@ -332,36 +338,23 @@ class _CartPageState extends State<CartPage> {
                         children: [
                           _QuantityButton(
                             icon: Icons.remove,
-                            onPressed: () {
-                                    int step = int.tryParse(controller.text) ?? 1;
-                                    step = step <= 0 ? 1 : step;
-                                    _changeQuantity(item, item.quantity - step);
-                                  },
+                            onPressed: () => _changeQuantity(item, item.quantity - 1),
                           ),
                           Container(
-                            width: 60,
+                            width: 40,
                             alignment: Alignment.center,
-                            padding: const EdgeInsets.symmetric(horizontal: 8),
-                            child: TextField(
-                              controller: controller,
-                              keyboardType: TextInputType.number,
-                              textAlign: TextAlign.center,
-                              style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: _dark),
-                              decoration: const InputDecoration(
-                                hintText: '1',
-                                isDense: true,
-                                contentPadding: EdgeInsets.symmetric(vertical: 8),
-                                border: OutlineInputBorder(),
+                            child: Text(
+                              '${item.quantity}',
+                              style: const TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.w700,
+                                color: _dark,
                               ),
                             ),
                           ),
                           _QuantityButton(
                             icon: Icons.add,
-                            onPressed: () {
-                                    int step = int.tryParse(controller.text) ?? 1;
-                                    step = step <= 0 ? 1 : step;
-                                    _changeQuantity(item, item.quantity + step);
-                                  },
+                            onPressed: () => _changeQuantity(item, item.quantity + 1),
                           ),
                           const Spacer(),
                           if (item.quantity >= product.stockQuantity)
