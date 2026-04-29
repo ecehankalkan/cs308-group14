@@ -1,3 +1,6 @@
+// ignore: avoid_web_libraries_in_flutter
+import 'dart:html' as html;
+import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 import '../models/order.dart';
 import '../models/product.dart';
@@ -27,7 +30,7 @@ class _SalesDashboardPageState extends State<SalesDashboardPage>
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 2, vsync: this);
+    _tabController = TabController(length: 3, vsync: this);
     _loadProducts();
     _loadOrders();
   }
@@ -96,6 +99,7 @@ class _SalesDashboardPageState extends State<SalesDashboardPage>
           tabs: const [
             Tab(icon: Icon(Icons.inventory_2_outlined), text: 'Products'),
             Tab(icon: Icon(Icons.receipt_long_outlined), text: 'Orders'),
+            Tab(icon: Icon(Icons.bar_chart_outlined), text: 'Revenue'),
           ],
         ),
         actions: [
@@ -123,6 +127,11 @@ class _SalesDashboardPageState extends State<SalesDashboardPage>
             loading: _loadingOrders,
             orders: _orders,
             totalRevenue: totalRevenue,
+            onRefresh: _loadOrders,
+          ),
+          _RevenueTab(
+            loading: _loadingOrders,
+            orders: _orders,
             onRefresh: _loadOrders,
           ),
         ],
@@ -228,6 +237,7 @@ class _OrdersTab extends StatefulWidget {
 class _OrdersTabState extends State<_OrdersTab> {
   String _statusFilter = 'all';
   String _search = '';
+  DateTimeRange? _dateRange;
 
   List<Order> get _filtered {
     return widget.orders.where((o) {
@@ -237,9 +247,28 @@ class _OrdersTabState extends State<_OrdersTab> {
           (o.customerName?.toLowerCase().contains(q) ?? false) ||
           (o.customerEmail?.toLowerCase().contains(q) ?? false) ||
           o.orderId.contains(q);
-      return matchesStatus && matchesSearch;
+      final matchesDate = _dateRange == null ||
+          (!o.createdAt.isBefore(_dateRange!.start) &&
+           !o.createdAt.isAfter(DateTime(
+             _dateRange!.end.year, _dateRange!.end.month, _dateRange!.end.day, 23, 59, 59)));
+      return matchesStatus && matchesSearch && matchesDate;
     }).toList();
   }
+
+  Future<void> _pickRange() async {
+    final now = DateTime.now();
+    final picked = await showDateRangePicker(
+      context: context,
+      firstDate: DateTime(2020),
+      lastDate: now,
+      initialDateRange: _dateRange ??
+          DateTimeRange(start: now.subtract(const Duration(days: 30)), end: now),
+    );
+    if (picked != null) setState(() => _dateRange = picked);
+  }
+
+  String _fmtDate(DateTime d) =>
+      '${d.day.toString().padLeft(2, '0')}/${d.month.toString().padLeft(2, '0')}/${d.year}';
 
   @override
   Widget build(BuildContext context) {
@@ -284,6 +313,22 @@ class _OrdersTabState extends State<_OrdersTab> {
               children: [
                 Text('Order History', style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold)),
                 const Spacer(),
+                OutlinedButton.icon(
+                  icon: const Icon(Icons.date_range, size: 18),
+                  label: Text(_dateRange == null
+                      ? 'All dates'
+                      : '${_fmtDate(_dateRange!.start)} – ${_fmtDate(_dateRange!.end)}'),
+                  onPressed: _pickRange,
+                ),
+                if (_dateRange != null) ...[
+                  const SizedBox(width: 4),
+                  IconButton(
+                    icon: const Icon(Icons.close, size: 18),
+                    tooltip: 'Clear date filter',
+                    onPressed: () => setState(() => _dateRange = null),
+                  ),
+                ],
+                const SizedBox(width: 12),
                 DropdownButton<String>(
                   value: _statusFilter,
                   underline: const SizedBox(),
@@ -311,7 +356,7 @@ class _OrdersTabState extends State<_OrdersTab> {
                 ),
               ],
             ),
-            if (_statusFilter != 'all' || _search.isNotEmpty)
+            if (_statusFilter != 'all' || _search.isNotEmpty || _dateRange != null)
               Padding(
                 padding: const EdgeInsets.only(top: 8),
                 child: Text(
@@ -338,76 +383,509 @@ class _OrderList extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-
     return Card(
       elevation: 1,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       clipBehavior: Clip.antiAlias,
-      child: SingleChildScrollView(
-        child: Table(
-          columnWidths: const {
-            0: FixedColumnWidth(72),
-            1: FlexColumnWidth(2),
-            2: FlexColumnWidth(2.5),
-            3: FlexColumnWidth(1.5),
-            4: FlexColumnWidth(1.2),
-            5: FlexColumnWidth(1.2),
-          },
-          children: [
-            TableRow(
-              decoration: BoxDecoration(color: theme.colorScheme.primary.withValues(alpha: 0.08)),
-              children: const [
-                _HeaderCell('Order #'),
-                _HeaderCell('Customer'),
-                _HeaderCell('Email'),
-                _HeaderCell('Date'),
-                _HeaderCell('Total'),
-                _HeaderCell('Status'),
-              ],
-            ),
-            for (int i = 0; i < orders.length; i++)
-              _buildOrderRow(orders[i], i),
-          ],
-        ),
+      child: ListView.builder(
+        itemCount: orders.length,
+        itemBuilder: (_, i) => _OrderCard(order: orders[i], isOdd: i.isOdd),
       ),
     );
   }
+}
 
-  TableRow _buildOrderRow(Order o, int i) {
-    final statusColor = switch (o.status) {
+class _OrderCard extends StatelessWidget {
+  final Order order;
+  final bool isOdd;
+  const _OrderCard({required this.order, required this.isOdd});
+
+  @override
+  Widget build(BuildContext context) {
+    final statusColor = switch (order.status) {
       'delivered'  => Colors.green.shade700,
       'in-transit' => Colors.blue.shade700,
       'processing' => Colors.orange.shade700,
       _            => Colors.grey,
     };
     final dateStr =
-        '${o.createdAt.day.toString().padLeft(2, '0')}/${o.createdAt.month.toString().padLeft(2, '0')}/${o.createdAt.year}';
+        '${order.createdAt.day.toString().padLeft(2, '0')}/'
+        '${order.createdAt.month.toString().padLeft(2, '0')}/'
+        '${order.createdAt.year}';
 
-    return TableRow(
-      decoration: BoxDecoration(color: i.isOdd ? Colors.grey.shade50 : Colors.white),
-      children: [
-        _Cell('#${o.orderId}', bold: true),
-        _Cell(o.customerName ?? '—'),
-        _Cell(o.customerEmail ?? '—'),
-        _Cell(dateStr),
-        _Cell('\$${o.totalAmount.toStringAsFixed(2)}', bold: true),
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-            decoration: BoxDecoration(
-              color: statusColor.withValues(alpha: 0.12),
-              borderRadius: BorderRadius.circular(12),
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: isOdd ? Colors.grey.shade50 : Colors.white,
+        border: const Border(bottom: BorderSide(color: Color(0xFFEEEEEE))),
+      ),
+      child: ExpansionTile(
+        tilePadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+        expandedCrossAxisAlignment: CrossAxisAlignment.start,
+        childrenPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+        backgroundColor: isOdd ? Colors.grey.shade50 : Colors.white,
+        collapsedBackgroundColor: isOdd ? Colors.grey.shade50 : Colors.white,
+        title: Row(
+          children: [
+            SizedBox(
+              width: 80,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('#${order.orderId}', style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13)),
+                  Text(dateStr, style: const TextStyle(fontSize: 11, color: Colors.grey)),
+                ],
+              ),
             ),
-            child: Text(
-              o.status.isEmpty ? '—' : o.status,
-              style: TextStyle(color: statusColor, fontSize: 12, fontWeight: FontWeight.w600),
-              textAlign: TextAlign.center,
+            const SizedBox(width: 8),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(order.customerName ?? '—', style: const TextStyle(fontWeight: FontWeight.w500, fontSize: 13)),
+                  Text(order.customerEmail ?? '—', style: const TextStyle(fontSize: 11, color: Colors.grey)),
+                ],
+              ),
             ),
-          ),
+            Text(
+              '\$${order.totalAmount.toStringAsFixed(2)}',
+              style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13),
+            ),
+            const SizedBox(width: 12),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+              decoration: BoxDecoration(
+                color: statusColor.withValues(alpha: 0.12),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Text(
+                order.status.isEmpty ? '—' : order.status,
+                style: TextStyle(color: statusColor, fontSize: 12, fontWeight: FontWeight.w600),
+              ),
+            ),
+          ],
         ),
-      ],
+        children: [
+          const Divider(height: 1),
+          const SizedBox(height: 12),
+          if (order.items.isNotEmpty) ...[
+            const Text('Items', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
+            const SizedBox(height: 8),
+            ...order.items.map(
+              (item) => Padding(
+                padding: const EdgeInsets.symmetric(vertical: 3),
+                child: Row(
+                  children: [
+                    Expanded(child: Text(item.productName, style: const TextStyle(fontSize: 13))),
+                    Text('× ${item.quantity}', style: const TextStyle(fontSize: 13, color: Colors.grey)),
+                    const SizedBox(width: 24),
+                    SizedBox(
+                      width: 70,
+                      child: Text(
+                        '\$${item.unitPrice.toStringAsFixed(2)}',
+                        style: const TextStyle(fontSize: 13),
+                        textAlign: TextAlign.right,
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    SizedBox(
+                      width: 90,
+                      child: Text(
+                        '= \$${item.subtotal.toStringAsFixed(2)}',
+                        style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+                        textAlign: TextAlign.right,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(height: 12),
+          ],
+          Row(
+            mainAxisAlignment: MainAxisAlignment.end,
+            children: [
+              OutlinedButton.icon(
+                icon: const Icon(Icons.visibility_outlined, size: 16),
+                label: const Text('Preview Invoice'),
+                onPressed: () => _openInvoice(context, download: false),
+              ),
+              const SizedBox(width: 8),
+              FilledButton.icon(
+                icon: const Icon(Icons.download_outlined, size: 16),
+                label: const Text('Download Invoice'),
+                onPressed: () => _openInvoice(context, download: true),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _openInvoice(BuildContext context, {required bool download}) {
+    const baseUrl = 'http://127.0.0.1:8000';
+    final url = download
+        ? '$baseUrl/api/sales/orders/${order.orderId}/invoice/?download=1'
+        : '$baseUrl/api/sales/orders/${order.orderId}/invoice/';
+    html.window.open(url, '_blank');
+  }
+}
+
+// ── Revenue tab ───────────────────────────────────────────────────────────────
+
+class _RevenueTab extends StatefulWidget {
+  final bool loading;
+  final List<Order> orders;
+  final Future<void> Function() onRefresh;
+
+  const _RevenueTab({
+    required this.loading,
+    required this.orders,
+    required this.onRefresh,
+  });
+
+  @override
+  State<_RevenueTab> createState() => _RevenueTabState();
+}
+
+class _RevenueTabState extends State<_RevenueTab> {
+  String _granularity = 'monthly'; // 'daily' | 'weekly' | 'monthly'
+  String _currency = 'USD';        // 'USD' | 'TRY'
+  DateTimeRange? _range;
+
+  static const double _tryRate = 38.5; // fixed rate for display
+
+  String get _symbol => _currency == 'TRY' ? '₺' : '\$';
+  double _convert(double usd) => _currency == 'TRY' ? usd * _tryRate : usd;
+
+  // ── Data helpers ─────────────────────────────────────────────────────────
+
+  List<Order> get _rangeOrders {
+    if (_range == null) return widget.orders;
+    final end = DateTime(_range!.end.year, _range!.end.month, _range!.end.day, 23, 59, 59);
+    return widget.orders
+        .where((o) => !o.createdAt.isBefore(_range!.start) && !o.createdAt.isAfter(end))
+        .toList();
+  }
+
+  String _bucket(DateTime dt) {
+    switch (_granularity) {
+      case 'daily':
+        return '${dt.year}-${dt.month.toString().padLeft(2, '0')}-${dt.day.toString().padLeft(2, '0')}';
+      case 'weekly':
+        final monday = dt.subtract(Duration(days: dt.weekday - 1));
+        return '${monday.year}-${monday.month.toString().padLeft(2, '0')}-${monday.day.toString().padLeft(2, '0')}';
+      case 'monthly':
+      default:
+        return '${dt.year}-${dt.month.toString().padLeft(2, '0')}';
+    }
+  }
+
+  String _label(String key) {
+    final p = key.split('-');
+    switch (_granularity) {
+      case 'daily':
+      case 'weekly':
+        return '${p[2]}/${p[1]}';
+      case 'monthly':
+      default:
+        const m = ['', 'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+                        'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+        return '${m[int.parse(p[1])]}\n${p[0]}';
+    }
+  }
+
+  Map<String, double> get _grouped {
+    final map = <String, double>{};
+    for (final o in _rangeOrders) {
+      final k = _bucket(o.createdAt);
+      map[k] = (map[k] ?? 0) + o.totalAmount;
+    }
+    final sorted = map.entries.toList()..sort((a, b) => a.key.compareTo(b.key));
+    return Map.fromEntries(sorted);
+  }
+
+  // ── Date range picker ────────────────────────────────────────────────────
+
+  Future<void> _pickRange() async {
+    final now = DateTime.now();
+    final picked = await showDateRangePicker(
+      context: context,
+      firstDate: DateTime(2020),
+      lastDate: now,
+      initialDateRange: _range ??
+          DateTimeRange(start: now.subtract(const Duration(days: 90)), end: now),
+    );
+    if (picked != null) setState(() => _range = picked);
+  }
+
+  String _fmtDate(DateTime d) =>
+      '${d.day.toString().padLeft(2, '0')}/${d.month.toString().padLeft(2, '0')}/${d.year}';
+
+  // ── Build ────────────────────────────────────────────────────────────────
+
+  @override
+  Widget build(BuildContext context) {
+    if (widget.loading) return const Center(child: CircularProgressIndicator());
+
+    final theme = Theme.of(context);
+    final grouped = _grouped;
+    final keys = grouped.keys.toList();
+    final values = grouped.values.map(_convert).toList();
+    final total = values.fold(0.0, (s, v) => s + v);
+    final maxY = values.isEmpty ? 100.0 : values.reduce((a, b) => a > b ? a : b) * 1.25;
+    final barWidth = keys.length > 20 ? 8.0 : keys.length > 10 ? 14.0 : 22.0;
+
+    return RefreshIndicator(
+      onRefresh: widget.onRefresh,
+      child: SingleChildScrollView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // ── Controls row ─────────────────────────────────────────────
+            Wrap(
+              spacing: 12,
+              runSpacing: 8,
+              crossAxisAlignment: WrapCrossAlignment.center,
+              children: [
+                SegmentedButton<String>(
+                  segments: const [
+                    ButtonSegment(value: 'daily',   label: Text('Daily')),
+                    ButtonSegment(value: 'weekly',  label: Text('Weekly')),
+                    ButtonSegment(value: 'monthly', label: Text('Monthly')),
+                  ],
+                  selected: {_granularity},
+                  onSelectionChanged: (s) => setState(() => _granularity = s.first),
+                ),
+                ToggleButtons(
+                  isSelected: [_currency == 'USD', _currency == 'TRY'],
+                  onPressed: (i) => setState(() => _currency = i == 0 ? 'USD' : 'TRY'),
+                  borderRadius: BorderRadius.circular(8),
+                  constraints: const BoxConstraints(minHeight: 40, minWidth: 72),
+                  children: const [Text('\$ USD'), Text('₺ TRY')],
+                ),
+                OutlinedButton.icon(
+                  icon: const Icon(Icons.date_range, size: 18),
+                  label: Text(_range == null
+                      ? 'All time'
+                      : '${_fmtDate(_range!.start)} – ${_fmtDate(_range!.end)}'),
+                  onPressed: _pickRange,
+                ),
+                if (_range != null)
+                  IconButton(
+                    icon: const Icon(Icons.close, size: 18),
+                    tooltip: 'Clear filter',
+                    onPressed: () => setState(() => _range = null),
+                  ),
+              ],
+            ),
+            const SizedBox(height: 20),
+
+            // ── Stat cards ───────────────────────────────────────────────
+            Row(
+              children: [
+                _StatCard(
+                  icon: Icons.attach_money,
+                  label: 'Total Revenue (filtered)',
+                  value: '$_symbol${total.toStringAsFixed(2)}',
+                  small: true,
+                ),
+                const SizedBox(width: 16),
+                _StatCard(
+                  icon: Icons.bar_chart,
+                  label: 'Periods shown',
+                  value: '${keys.length}',
+                ),
+                const SizedBox(width: 16),
+                _StatCard(
+                  icon: Icons.receipt_long_outlined,
+                  label: 'Orders (filtered)',
+                  value: '${_rangeOrders.length}',
+                ),
+              ],
+            ),
+            const SizedBox(height: 28),
+
+            // ── Chart ────────────────────────────────────────────────────
+            Text(
+              'Revenue per ${_granularity[0].toUpperCase()}${_granularity.substring(1)} Period',
+              style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 16),
+            if (keys.isEmpty)
+              const Center(
+                child: Padding(
+                  padding: EdgeInsets.symmetric(vertical: 48),
+                  child: Text('No orders in the selected range.'),
+                ),
+              )
+            else
+              SizedBox(
+                height: 300,
+                child: BarChart(
+                  BarChartData(
+                    maxY: maxY,
+                    barTouchData: BarTouchData(
+                      touchTooltipData: BarTouchTooltipData(
+                        getTooltipColor: (_) => Colors.blueGrey.shade800,
+                        getTooltipItem: (group, _, rod, _) => BarTooltipItem(
+                          '${_label(keys[group.x]).replaceAll('\n', ' ')}'
+                          '\n$_symbol${rod.toY.toStringAsFixed(2)}',
+                          const TextStyle(color: Colors.white, fontWeight: FontWeight.w600, fontSize: 13),
+                        ),
+                      ),
+                    ),
+                    titlesData: FlTitlesData(
+                      rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                      topTitles:   const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                      bottomTitles: AxisTitles(
+                        sideTitles: SideTitles(
+                          showTitles: true,
+                          reservedSize: 36,
+                          getTitlesWidget: (x, _) {
+                            final i = x.toInt();
+                            if (i < 0 || i >= keys.length) return const SizedBox();
+                            if (keys.length > 15 && i % ((keys.length / 7).ceil()) != 0) {
+                              return const SizedBox();
+                            }
+                            return Padding(
+                              padding: const EdgeInsets.only(top: 6),
+                              child: Text(
+                                _label(keys[i]),
+                                style: const TextStyle(fontSize: 10),
+                                textAlign: TextAlign.center,
+                              ),
+                            );
+                          },
+                        ),
+                      ),
+                      leftTitles: AxisTitles(
+                        sideTitles: SideTitles(
+                          showTitles: true,
+                          reservedSize: 64,
+                          getTitlesWidget: (y, _) => Text(
+                            '$_symbol${y >= 1000 ? '${(y / 1000).toStringAsFixed(1)}k' : y.toStringAsFixed(0)}',
+                            style: const TextStyle(fontSize: 10),
+                          ),
+                        ),
+                      ),
+                    ),
+                    gridData: FlGridData(
+                      drawVerticalLine: false,
+                      getDrawingHorizontalLine: (_) =>
+                          FlLine(color: Colors.grey.shade200, strokeWidth: 1),
+                    ),
+                    borderData: FlBorderData(show: false),
+                    barGroups: [
+                      for (int i = 0; i < keys.length; i++)
+                        BarChartGroupData(
+                          x: i,
+                          barRods: [
+                            BarChartRodData(
+                              toY: values[i],
+                              color: theme.colorScheme.primary,
+                              width: barWidth,
+                              borderRadius: const BorderRadius.vertical(top: Radius.circular(4)),
+                            ),
+                          ],
+                        ),
+                    ],
+                  ),
+                ),
+              ),
+            const SizedBox(height: 36),
+
+            // ── Breakdown rows ───────────────────────────────────────────
+            Text(
+              '${_granularity[0].toUpperCase()}${_granularity.substring(1)} Breakdown',
+              style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 12),
+            Card(
+              elevation: 1,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              clipBehavior: Clip.antiAlias,
+              child: Column(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+                    color: theme.colorScheme.primary.withValues(alpha: 0.08),
+                    child: const Row(
+                      children: [
+                        Expanded(child: Text('Period', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13))),
+                        Text('Revenue', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13)),
+                      ],
+                    ),
+                  ),
+                  if (keys.isEmpty)
+                    const Padding(padding: EdgeInsets.all(20), child: Text('No data.'))
+                  else
+                    ...List.generate(keys.length, (i) {
+                      final pct = total > 0 ? values[i] / total : 0.0;
+                      return Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+                        decoration: BoxDecoration(
+                          color: i.isOdd ? Colors.grey.shade50 : Colors.white,
+                          border: const Border(bottom: BorderSide(color: Color(0xFFEEEEEE))),
+                        ),
+                        child: Row(
+                          children: [
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    _label(keys[i]).replaceAll('\n', ' '),
+                                    style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
+                                  ),
+                                  const SizedBox(height: 5),
+                                  ClipRRect(
+                                    borderRadius: BorderRadius.circular(4),
+                                    child: LinearProgressIndicator(
+                                      value: pct,
+                                      minHeight: 5,
+                                      backgroundColor: Colors.grey.shade200,
+                                      valueColor: AlwaysStoppedAnimation(theme.colorScheme.primary),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            const SizedBox(width: 20),
+                            Column(
+                              crossAxisAlignment: CrossAxisAlignment.end,
+                              children: [
+                                Text(
+                                  '$_symbol${values[i].toStringAsFixed(2)}',
+                                  style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13),
+                                ),
+                                Text(
+                                  '${(pct * 100).toStringAsFixed(1)}%',
+                                  style: TextStyle(fontSize: 11, color: Colors.grey.shade500),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
+                      );
+                    }),
+                ],
+              ),
+            ),
+            if (_currency == 'TRY')
+              Padding(
+                padding: const EdgeInsets.only(top: 8),
+                child: Text(
+                  '* TRY amounts use a fixed display rate of 1 USD = ${_tryRate.toStringAsFixed(1)} ₺',
+                  style: TextStyle(fontSize: 11, color: Colors.grey.shade500),
+                ),
+              ),
+            const SizedBox(height: 24),
+          ],
+        ),
+      ),
     );
   }
 }

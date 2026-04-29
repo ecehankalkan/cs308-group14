@@ -11,6 +11,7 @@ urlpatterns = [
     path('profile/',       views.ProfileView.as_view(),      name='profile'),
     path('orders/',        views.OrderListView.as_view(),    name='orders'),
     path('sales/orders/', views.SalesOrderListView.as_view(), name='sales_orders'),
+    path('sales/orders/<int:pk>/invoice/', views.SalesOrderInvoiceView.as_view(), name='sales_order_invoice'),
 
     # Products (public list/detail + manager write operations)
     path('products/',                        views.ProductListView.as_view(),     name='product_list'),
