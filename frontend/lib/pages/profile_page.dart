@@ -956,6 +956,10 @@ class _OrderCardState extends State<_OrderCard> {
                           _formatDate(order.createdAt),
                           style: const TextStyle(color: _medium, fontSize: 12),
                         ),
+                        if (order.status.isNotEmpty) ...[
+                          const SizedBox(height: 6),
+                          _StatusBadge(status: order.status),
+                        ],
                       ],
                     ),
                   ),
@@ -1096,6 +1100,32 @@ class _OrderItemRow extends StatelessWidget {
   }
 }
 
+
+class _StatusBadge extends StatelessWidget {
+  final String status;
+  const _StatusBadge({required this.status});
+
+  @override
+  Widget build(BuildContext context) {
+    final (label, color) = switch (status) {
+      'delivered'  => ('Delivered', Colors.green.shade700),
+      'in-transit' => ('In Transit', Colors.blue.shade700),
+      'processing' => ('Processing', Colors.orange.shade700),
+      _            => (status, Colors.grey.shade600),
+    };
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: Text(
+        label,
+        style: TextStyle(color: color, fontSize: 11, fontWeight: FontWeight.w700),
+      ),
+    );
+  }
+}
 
 // ─────────────────────────────────────────────────────────────────
 // Address and Card display cards
