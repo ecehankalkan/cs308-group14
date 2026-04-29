@@ -5,6 +5,7 @@ import 'pages/login_page.dart';
 import 'pages/signup_page.dart';
 import 'pages/cart_page.dart';
 import 'pages/profile_page.dart';
+import 'pages/sales_dashboard_page.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -38,6 +39,7 @@ class MyApp extends StatelessWidget {
         '/signup': (context) => const SignupPage(),
         '/cart': (context) => const CartPage(),
         '/profile': (context) => const ProfilePage(),
+        '/sales-dashboard': (context) => const SalesDashboardPage(),
       },
     );
   }
