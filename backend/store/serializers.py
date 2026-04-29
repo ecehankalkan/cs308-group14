@@ -57,6 +57,18 @@ class OrderSerializer(serializers.ModelSerializer):
         fields = ['id', 'created_at', 'total_amount', 'delivery_address', 'status', 'items']
 
 
+class SalesOrderSerializer(serializers.ModelSerializer):
+    items          = OrderItemSerializer(many=True, read_only=True)
+    total_amount   = serializers.DecimalField(source='total_price', max_digits=12, decimal_places=2, read_only=True)
+    customer_name  = serializers.CharField(source='customer.name', read_only=True)
+    customer_email = serializers.CharField(source='customer.email', read_only=True)
+
+    class Meta:
+        model  = Order
+        fields = ['id', 'created_at', 'total_amount', 'delivery_address', 'status',
+                  'customer_name', 'customer_email', 'items']
+
+
 class CartSerializer(serializers.ModelSerializer):
     product    = ProductSerializer(read_only=True)
     product_id = serializers.PrimaryKeyRelatedField(

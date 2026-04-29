@@ -100,3 +100,35 @@ class ProductDiscountView(APIView):
         product.save(update_fields=['discounted_price'])
 
         return Response(ProductSerializer(product).data)
+
+
+class ProductPriceView(APIView):
+    """PATCH /api/products/<id>/price/ — sales manager dashboard (no JWT required)"""
+    permission_classes = [permissions.AllowAny]
+
+    def patch(self, request, pk):
+        try:
+            product = Product.objects.get(pk=pk)
+        except Product.DoesNotExist:
+            return Response({'error': 'Product not found'}, status=status.HTTP_404_NOT_FOUND)
+
+        new_price = request.data.get('price')
+        discount_pct = request.data.get('discount_percentage')
+
+        if new_price is not None:
+            try:
+                product.price = float(new_price)
+            except (TypeError, ValueError):
+                return Response({'error': 'Invalid price'}, status=status.HTTP_400_BAD_REQUEST)
+
+        if discount_pct is not None:
+            try:
+                pct = float(discount_pct)
+                if not (0 <= pct <= 100):
+                    return Response({'error': 'discount_percentage must be 0–100'}, status=status.HTTP_400_BAD_REQUEST)
+                product.discounted_price = round(product.price * (1 - pct / 100), 2) if pct > 0 else None
+            except (TypeError, ValueError):
+                return Response({'error': 'Invalid discount_percentage'}, status=status.HTTP_400_BAD_REQUEST)
+
+        product.save()
+        return Response(ProductSerializer(product).data)

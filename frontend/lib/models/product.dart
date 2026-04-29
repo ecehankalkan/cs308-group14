@@ -16,6 +16,7 @@ class Product {
   final String name;
   final String description;
   final double price;
+  final double? discountedPrice;
   final String warrantyInfo;
   final String distributor;
   final int stockQuantity;
@@ -26,6 +27,7 @@ class Product {
     required this.name,
     required this.description,
     required this.price,
+    this.discountedPrice,
     required this.warrantyInfo,
     required this.distributor,
     required this.stockQuantity,
@@ -39,6 +41,9 @@ class Product {
       name: map['name'] as String? ?? '',
       description: map['description'] as String? ?? '',
       price: double.tryParse(map['price'].toString()) ?? 0.0,
+      discountedPrice: map['discounted_price'] != null
+          ? double.tryParse(map['discounted_price'].toString())
+          : null,
       warrantyInfo: (map['warranty_status'] is bool)
           ? (map['warranty_status'] ? 'Available' : 'None')
           : (map['warranty_status']?.toString() ?? map['warrantyInfo']?.toString() ?? 'Standard Warranty'),

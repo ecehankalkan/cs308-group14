@@ -553,14 +553,39 @@ class _ProductCard extends StatelessWidget {
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        Text(
-                          '\$${product.price.toStringAsFixed(2)}',
-                          style: const TextStyle(
-                            color: _dark,
-                            fontSize: 16,
-                            fontWeight: FontWeight.w800,
+                        if (product.discountedPrice != null) ...[
+                          Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                '\$${product.price.toStringAsFixed(2)}',
+                                style: const TextStyle(
+                                  color: _medium,
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w500,
+                                  decoration: TextDecoration.lineThrough,
+                                  decorationColor: _medium,
+                                ),
+                              ),
+                              Text(
+                                '\$${product.discountedPrice!.toStringAsFixed(2)}',
+                                style: const TextStyle(
+                                  color: Color(0xFF2E7D32),
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.w800,
+                                ),
+                              ),
+                            ],
                           ),
-                        ),
+                        ] else
+                          Text(
+                            '\$${product.price.toStringAsFixed(2)}',
+                            style: const TextStyle(
+                              color: _dark,
+                              fontSize: 16,
+                              fontWeight: FontWeight.w800,
+                            ),
+                          ),
                         Text(
                           product.stockQuantity > 0
                               ? 'In stock'

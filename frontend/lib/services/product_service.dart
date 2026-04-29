@@ -26,6 +26,25 @@ class ProductService {
     return [];
   }
 
+  Future<Product?> updateProductPrice(String productId, {double? price, double? discountPercentage}) async {
+    try {
+      final body = <String, dynamic>{};
+      if (price != null) body['price'] = price;
+      if (discountPercentage != null) body['discount_percentage'] = discountPercentage;
+
+      final response = await http.patch(
+        Uri.parse('$_baseUrl/api/products/$productId/price/'),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode(body),
+      );
+
+      if (response.statusCode == 200) {
+        return Product.fromMap(jsonDecode(response.body) as Map<String, dynamic>);
+      }
+    } catch (_) {}
+    return null;
+  }
+
   Future<Product?> fetchProductById(String productId) async {
     try {
       final response = await http.get(

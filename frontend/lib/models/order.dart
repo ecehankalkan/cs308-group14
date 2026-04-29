@@ -27,6 +27,8 @@ class Order {
   final double totalAmount;
   final String deliveryAddress;
   final String status;
+  final String? customerName;
+  final String? customerEmail;
 
   const Order({
     required this.orderId,
@@ -35,6 +37,8 @@ class Order {
     required this.totalAmount,
     required this.deliveryAddress,
     this.status = '',
+    this.customerName,
+    this.customerEmail,
   });
 
   factory Order.fromJson(Map<String, dynamic> json) {
@@ -50,6 +54,8 @@ class Order {
       totalAmount: double.tryParse(json['total_amount']?.toString() ?? '') ?? 0.0,
       deliveryAddress: json['delivery_address'] as String? ?? '',
       status: json['status'] as String? ?? '',
+      customerName: json['customer_name'] as String?,
+      customerEmail: json['customer_email'] as String?,
     );
   }
 }

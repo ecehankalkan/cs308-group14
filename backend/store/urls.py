@@ -10,12 +10,14 @@ urlpatterns = [
     path('me/',            views.MeView.as_view(),           name='me'),
     path('profile/',       views.ProfileView.as_view(),      name='profile'),
     path('orders/',        views.OrderListView.as_view(),    name='orders'),
+    path('sales/orders/', views.SalesOrderListView.as_view(), name='sales_orders'),
 
     # Products (public list/detail + manager write operations)
     path('products/',                        views.ProductListView.as_view(),     name='product_list'),
     path('products/<int:pk>/',               views.ProductDetailView.as_view(),   name='product_detail'),
     path('products/<int:pk>/stock/',         views.ProductStockView.as_view(),    name='product_stock'),
     path('products/<int:pk>/discount/',      views.ProductDiscountView.as_view(), name='product_discount'),
+    path('products/<int:pk>/price/',         views.ProductPriceView.as_view(),    name='product_price'),
 
     # Cart (Authenticated Only)
     path('cart/',          views.CartView.as_view(),         name='cart'),
