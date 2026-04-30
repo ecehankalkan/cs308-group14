@@ -3,6 +3,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import '../services/auth_service.dart';
 import '../services/cart_service.dart';
 import '../services/product_service.dart';
+import '../services/wishlist_service.dart';
 import '../models/product.dart';
 import 'product_page.dart';
 
@@ -13,16 +14,16 @@ const _cream = Color(0xFFF1DEC9);
 const _offWhite = Color(0xFFFAF5EF);
 
 const Map<DeweyCategory, Color> _categoryColors = {
-  DeweyCategory.generalWorks:   Color(0xFF5C7A9E),
-  DeweyCategory.philosophy:     Color(0xFF7B5EA7),
-  DeweyCategory.religion:       Color(0xFFB07D4A),
+  DeweyCategory.generalWorks: Color(0xFF5C7A9E),
+  DeweyCategory.philosophy: Color(0xFF7B5EA7),
+  DeweyCategory.religion: Color(0xFFB07D4A),
   DeweyCategory.socialSciences: Color(0xFF4A8B6F),
-  DeweyCategory.language:       Color(0xFF3A8FA8),
-  DeweyCategory.pureScience:    Color(0xFF2E7D6B),
-  DeweyCategory.technology:     Color(0xFF5A6E8A),
-  DeweyCategory.arts:           Color(0xFFC0534A),
-  DeweyCategory.literature:     Color(0xFF8D7B68),
-  DeweyCategory.history:        Color(0xFF7A6E4A),
+  DeweyCategory.language: Color(0xFF3A8FA8),
+  DeweyCategory.pureScience: Color(0xFF2E7D6B),
+  DeweyCategory.technology: Color(0xFF5A6E8A),
+  DeweyCategory.arts: Color(0xFFC0534A),
+  DeweyCategory.literature: Color(0xFF8D7B68),
+  DeweyCategory.history: Color(0xFF7A6E4A),
 };
 
 // ─── Sort options ────────────────────────────────────────────────────────────
@@ -93,7 +94,8 @@ class _HomePageState extends State<HomePage> {
   List<Product> get _filteredProducts {
     List<Product> result = _allProducts.where((p) {
       final q = _searchQuery.toLowerCase();
-      final matchesSearch = q.isEmpty ||
+      final matchesSearch =
+          q.isEmpty ||
           p.name.toLowerCase().contains(q) ||
           p.description.toLowerCase().contains(q);
       final matchesCategory =
@@ -171,42 +173,48 @@ class _HomePageState extends State<HomePage> {
                         child: Text(
                           'Hi, ${user.displayName ?? 'User'}!',
                           style: const TextStyle(
-                              fontWeight: FontWeight.bold, color: _dark),
+                            fontWeight: FontWeight.bold,
+                            color: _dark,
+                          ),
                         ),
                       ),
                       PopupMenuItem(
-                        child: const Text('Profile',
-                            style: TextStyle(color: _dark)),
-                        onTap: () =>
-                            Navigator.pushNamed(context, '/profile'),
+                        child: const Text(
+                          'Profile',
+                          style: TextStyle(color: _dark),
+                        ),
+                        onTap: () => Navigator.pushNamed(context, '/profile'),
                       ),
                       PopupMenuItem(
-                        child: const Text('Logout',
-                            style: TextStyle(color: Colors.red)),
+                        child: const Text(
+                          'Logout',
+                          style: TextStyle(color: Colors.red),
+                        ),
                         onTap: () async => await AuthService().signOut(),
                       ),
                     ];
                   } else {
                     return [
                       PopupMenuItem(
-                        child: const Text('Login',
-                            style: TextStyle(color: _dark)),
-                        onTap: () =>
-                            Navigator.pushNamed(context, '/login'),
+                        child: const Text(
+                          'Login',
+                          style: TextStyle(color: _dark),
+                        ),
+                        onTap: () => Navigator.pushNamed(context, '/login'),
                       ),
                       PopupMenuItem(
-                        child: const Text('Sign Up',
-                            style: TextStyle(color: _dark)),
-                        onTap: () =>
-                            Navigator.pushNamed(context, '/signup'),
+                        child: const Text(
+                          'Sign Up',
+                          style: TextStyle(color: _dark),
+                        ),
+                        onTap: () => Navigator.pushNamed(context, '/signup'),
                       ),
                     ];
                   }
                 },
                 child: const Padding(
                   padding: EdgeInsets.symmetric(horizontal: 20.0),
-                  child: Icon(Icons.account_circle,
-                      size: 30, color: _offWhite),
+                  child: Icon(Icons.account_circle, size: 30, color: _offWhite),
                 ),
               );
             },
@@ -214,70 +222,76 @@ class _HomePageState extends State<HomePage> {
         ],
       ),
       body: _isLoading
-          ? const Center(
-              child: CircularProgressIndicator(color: _dark),
-            )
+          ? const Center(child: CircularProgressIndicator(color: _dark))
           : SingleChildScrollView(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-            _HeroSection(onBrowseBooks: _scrollToCategories),
-            _FeaturesSection(),
-            Container(
-              color: _offWhite,
-              padding: const EdgeInsets.symmetric(horizontal: 48, vertical: 8),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: Container(
-                      height: 1,
-                      decoration: BoxDecoration(
-                        gradient: LinearGradient(
-                          colors: [Colors.transparent, _taupe],
+                  _HeroSection(onBrowseBooks: _scrollToCategories),
+                  _FeaturesSection(),
+                  Container(
+                    color: _offWhite,
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 48,
+                      vertical: 8,
+                    ),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: Container(
+                            height: 1,
+                            decoration: BoxDecoration(
+                              gradient: LinearGradient(
+                                colors: [Colors.transparent, _taupe],
+                              ),
+                            ),
+                          ),
                         ),
-                      ),
+                        const Padding(
+                          padding: EdgeInsets.symmetric(horizontal: 16),
+                          child: Icon(
+                            Icons.auto_stories_outlined,
+                            color: _taupe,
+                            size: 20,
+                          ),
+                        ),
+                        Expanded(
+                          child: Container(
+                            height: 1,
+                            decoration: BoxDecoration(
+                              gradient: LinearGradient(
+                                colors: [_taupe, Colors.transparent],
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
                   ),
-                  const Padding(
-                    padding: EdgeInsets.symmetric(horizontal: 16),
-                    child: Icon(Icons.auto_stories_outlined, color: _taupe, size: 20),
-                  ),
-                  Expanded(
-                    child: Container(
-                      height: 1,
-                      decoration: BoxDecoration(
-                        gradient: LinearGradient(
-                          colors: [_taupe, Colors.transparent],
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            // ── Categories section — tapping filters the books below ──────
+                  // ── Categories section — tapping filters the books below ──────
                   _CategoriesSection(
                     key: _categoriesKey,
                     selectedCategory: _selectedCategory,
                     onCategoryTapped: _onCategoryTapped,
                   ),
-            // ── Search + filter bar ───────────────────────────────────────
-            _SearchFilterBar(
-              searchQuery: _searchQuery,
-              onSearchChanged: (val) => setState(() => _searchQuery = val),
-              sortOption: _sortOption,
-              onSortChanged: (val) => setState(() => _sortOption = val!),
-              minPrice: _minPrice,
-              maxPrice: _maxPrice,
-              absoluteMin: _absoluteMin,
-              absoluteMax: _absoluteMax,
-              onPriceChanged: (values) => setState(() {
-                _minPrice = values.start;
-                _maxPrice = values.end;
-              }),
-            ),
-            // ── Featured books now receives the filtered list ─────────────
-            _FeaturedBooksSection(products: _filteredProducts),
+                  // ── Search + filter bar ───────────────────────────────────────
+                  _SearchFilterBar(
+                    searchQuery: _searchQuery,
+                    onSearchChanged: (val) =>
+                        setState(() => _searchQuery = val),
+                    sortOption: _sortOption,
+                    onSortChanged: (val) => setState(() => _sortOption = val!),
+                    minPrice: _minPrice,
+                    maxPrice: _maxPrice,
+                    absoluteMin: _absoluteMin,
+                    absoluteMax: _absoluteMax,
+                    onPriceChanged: (values) => setState(() {
+                      _minPrice = values.start;
+                      _maxPrice = values.end;
+                    }),
+                  ),
+                  // ── Featured books now receives the filtered list ─────────────
+                  _FeaturedBooksSection(products: _filteredProducts),
                   _Footer(),
                 ],
               ),
@@ -334,8 +348,10 @@ class _SearchFilterBar extends StatelessWidget {
                   : null,
               filled: true,
               fillColor: _offWhite,
-              contentPadding:
-                  const EdgeInsets.symmetric(vertical: 14, horizontal: 20),
+              contentPadding: const EdgeInsets.symmetric(
+                vertical: 14,
+                horizontal: 20,
+              ),
               border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(6),
                 borderSide: BorderSide.none,
@@ -359,11 +375,14 @@ class _SearchFilterBar extends StatelessWidget {
               Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  const Text('Sort by price:',
-                      style: TextStyle(
-                          color: _dark,
-                          fontWeight: FontWeight.w600,
-                          fontSize: 13)),
+                  const Text(
+                    'Sort by price:',
+                    style: TextStyle(
+                      color: _dark,
+                      fontWeight: FontWeight.w600,
+                      fontSize: 13,
+                    ),
+                  ),
                   const SizedBox(width: 10),
                   DropdownButtonHideUnderline(
                     child: DropdownButton<_SortOption>(
@@ -400,9 +419,10 @@ class _SearchFilterBar extends StatelessWidget {
                     Text(
                       'Price range:  \$${minPrice.toStringAsFixed(0)} – \$${maxPrice.toStringAsFixed(0)}',
                       style: const TextStyle(
-                          color: _dark,
-                          fontWeight: FontWeight.w600,
-                          fontSize: 13),
+                        color: _dark,
+                        fontWeight: FontWeight.w600,
+                        fontSize: 13,
+                      ),
                     ),
                     SliderTheme(
                       data: SliderTheme.of(context).copyWith(
@@ -411,7 +431,8 @@ class _SearchFilterBar extends StatelessWidget {
                         thumbColor: _dark,
                         overlayColor: _dark.withValues(alpha: 0.15),
                         rangeThumbShape: const RoundRangeSliderThumbShape(
-                            enabledThumbRadius: 7),
+                          enabledThumbRadius: 7,
+                        ),
                       ),
                       child: RangeSlider(
                         min: absoluteMin,
@@ -458,9 +479,10 @@ class _FeaturedBooksSection extends StatelessWidget {
                   const Text(
                     'No products found.',
                     style: TextStyle(
-                        color: _dark,
-                        fontSize: 20,
-                        fontWeight: FontWeight.w700),
+                      color: _dark,
+                      fontSize: 20,
+                      fontWeight: FontWeight.w700,
+                    ),
                   ),
                   const SizedBox(height: 8),
                   const Text(
@@ -475,9 +497,7 @@ class _FeaturedBooksSection extends StatelessWidget {
               spacing: 24,
               runSpacing: 24,
               alignment: WrapAlignment.center,
-              children: products
-                  .map((p) => _ProductCard(product: p))
-                  .toList(),
+              children: products.map((p) => _ProductCard(product: p)).toList(),
             ),
         ],
       ),
@@ -485,168 +505,263 @@ class _FeaturedBooksSection extends StatelessWidget {
   }
 }
 
-// ─── Product Card (unchanged) ─────────────────────────────────────────────────
-class _ProductCard extends StatelessWidget {
+// ─── Product Card ────────────────────────────────────────────────────────────
+class _ProductCard extends StatefulWidget {
   final Product product;
 
   const _ProductCard({required this.product});
 
   @override
+  State<_ProductCard> createState() => _ProductCardState();
+}
+
+class _ProductCardState extends State<_ProductCard> {
+  late bool _inWishlist;
+
+  @override
+  void initState() {
+    super.initState();
+    _inWishlist = WishlistService().contains(widget.product.id);
+  }
+
+  void _toggleWishlist() {
+    setState(() {
+      if (_inWishlist) {
+        WishlistService().remove(widget.product.id);
+        _inWishlist = false;
+        ScaffoldMessenger.of(context).hideCurrentSnackBar();
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('${widget.product.name} removed from wishlist'),
+            duration: const Duration(seconds: 2),
+          ),
+        );
+      } else {
+        WishlistService().add(widget.product);
+        _inWishlist = true;
+        ScaffoldMessenger.of(context).hideCurrentSnackBar();
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('${widget.product.name} added to wishlist!'),
+            duration: const Duration(seconds: 2),
+          ),
+        );
+      }
+    });
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final product = widget.product;
     return SizedBox(
       width: 220,
-      child: InkWell(
-        borderRadius: BorderRadius.circular(8),
-        onTap: () {
-          Navigator.of(context).push(
-            MaterialPageRoute(
-              builder: (_) => ProductPage(product: product),
-            ),
-          );
-        },
-        child: Container(
-          decoration: BoxDecoration(
-            color: _offWhite,
+      child: Stack(
+        children: [
+          InkWell(
             borderRadius: BorderRadius.circular(8),
-            border: Border.all(
-                color: _categoryColors[product.category]!, width: 1.5),
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // Book cover placeholder
-              Container(
-                height: 180,
-                decoration: const BoxDecoration(
-                  color: _taupe,
-                  borderRadius: BorderRadius.vertical(top: Radius.circular(7)),
+            onTap: () {
+              Navigator.of(context).push(
+                MaterialPageRoute(
+                  builder: (_) => ProductPage(product: product),
                 ),
-                child: const Center(
-                  child: Icon(Icons.menu_book, color: _offWhite, size: 64),
+              );
+            },
+            child: Container(
+              decoration: BoxDecoration(
+                color: _offWhite,
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(
+                  color: _categoryColors[product.category]!,
+                  width: 1.5,
                 ),
               ),
-              Padding(
-                padding: const EdgeInsets.all(14),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      product.name,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        color: _categoryColors[product.category],
-                        fontSize: 14,
-                        fontWeight: FontWeight.w700,
-                        height: 1.3,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Book cover placeholder
+                  Container(
+                    height: 180,
+                    decoration: const BoxDecoration(
+                      color: _taupe,
+                      borderRadius: BorderRadius.vertical(
+                        top: Radius.circular(7),
                       ),
                     ),
-                    const SizedBox(height: 6),
-                    Text(
-                      product.description,
-                      maxLines: 3,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                          color: _medium, fontSize: 12, height: 1.4),
+                    child: const Center(
+                      child: Icon(Icons.menu_book, color: _offWhite, size: 64),
                     ),
-                    const SizedBox(height: 12),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.all(14),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        if (product.discountedPrice != null) ...[
-                          Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
+                        Text(
+                          product.name,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            color: _categoryColors[product.category],
+                            fontSize: 14,
+                            fontWeight: FontWeight.w700,
+                            height: 1.3,
+                          ),
+                        ),
+                        const SizedBox(height: 6),
+                        Text(
+                          product.description,
+                          maxLines: 3,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            color: _medium,
+                            fontSize: 12,
+                            height: 1.4,
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            if (product.discountedPrice != null) ...[
+                              Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    '\$${product.price.toStringAsFixed(2)}',
+                                    style: const TextStyle(
+                                      color: _medium,
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w500,
+                                      decoration: TextDecoration.lineThrough,
+                                      decorationColor: _medium,
+                                    ),
+                                  ),
+                                  Text(
+                                    '\$${product.discountedPrice!.toStringAsFixed(2)}',
+                                    style: const TextStyle(
+                                      color: Color(0xFF2E7D32),
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.w800,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ] else
                               Text(
                                 '\$${product.price.toStringAsFixed(2)}',
                                 style: const TextStyle(
-                                  color: _medium,
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.w500,
-                                  decoration: TextDecoration.lineThrough,
-                                  decorationColor: _medium,
-                                ),
-                              ),
-                              Text(
-                                '\$${product.discountedPrice!.toStringAsFixed(2)}',
-                                style: const TextStyle(
-                                  color: Color(0xFF2E7D32),
+                                  color: _dark,
                                   fontSize: 16,
                                   fontWeight: FontWeight.w800,
                                 ),
                               ),
-                            ],
-                          ),
-                        ] else
-                          Text(
-                            '\$${product.price.toStringAsFixed(2)}',
-                            style: const TextStyle(
-                              color: _dark,
-                              fontSize: 16,
-                              fontWeight: FontWeight.w800,
+                            Text(
+                              product.stockQuantity > 0
+                                  ? 'In stock'
+                                  : 'Out of stock',
+                              style: TextStyle(
+                                color: product.stockQuantity > 0
+                                    ? Colors.green.shade700
+                                    : Colors.red.shade400,
+                                fontSize: 11,
+                                fontWeight: FontWeight.w600,
+                              ),
                             ),
-                          ),
-                        Text(
-                          product.stockQuantity > 0
-                              ? 'In stock'
-                              : 'Out of stock',
-                          style: TextStyle(
-                            color: product.stockQuantity > 0
-                                ? Colors.green.shade700
-                                : Colors.red.shade400,
-                            fontSize: 11,
-                            fontWeight: FontWeight.w600,
+                          ],
+                        ),
+                        const SizedBox(height: 12),
+                        SizedBox(
+                          width: double.infinity,
+                          child: ElevatedButton(
+                            onPressed: product.stockQuantity > 0
+                                ? () {
+                                    // Prevent card tap when pressing CTA.
+                                    ScaffoldMessenger.of(
+                                      context,
+                                    ).hideCurrentSnackBar();
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      SnackBar(
+                                        content: Text(
+                                          '${product.name} added to cart!',
+                                        ),
+                                        backgroundColor: Colors.green,
+                                        duration: const Duration(seconds: 2),
+                                      ),
+                                    );
+
+                                    // Fire and forget, correctly incrementing quantity.
+                                    CartService()
+                                        .addOrIncrementItem(product.id)
+                                        .catchError((e) {
+                                          if (context.mounted) {
+                                            ScaffoldMessenger.of(
+                                              context,
+                                            ).hideCurrentSnackBar();
+                                            ScaffoldMessenger.of(
+                                              context,
+                                            ).showSnackBar(
+                                              SnackBar(
+                                                content: Text(
+                                                  'Failed to add ${product.name}',
+                                                ),
+                                                backgroundColor: Colors.red,
+                                                duration: const Duration(
+                                                  seconds: 2,
+                                                ),
+                                              ),
+                                            );
+                                          }
+                                        });
+                                  }
+                                : null,
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: _dark,
+                              foregroundColor: _offWhite,
+                              disabledBackgroundColor: _taupe,
+                              padding: const EdgeInsets.symmetric(vertical: 10),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(4),
+                              ),
+                            ),
+                            child: const Text(
+                              'Add to Cart',
+                              style: TextStyle(fontSize: 13),
+                            ),
                           ),
                         ),
                       ],
                     ),
-                    const SizedBox(height: 12),
-                    SizedBox(
-                      width: double.infinity,
-                      child: ElevatedButton(
-                        onPressed: product.stockQuantity > 0
-                            ? () {
-                                // Prevent card tap when pressing CTA.
-                                ScaffoldMessenger.of(context).hideCurrentSnackBar();
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                    SnackBar(
-                                        content: Text('${product.name} added to cart!'),
-                                        backgroundColor: Colors.green,
-                                        duration: const Duration(seconds: 2)));
-
-                                // Fire and forget, correctly incrementing quantity.
-                                CartService()
-                                  .addOrIncrementItem(product.id)
-                                  .catchError((e) {
-                                  if (context.mounted) {
-                                    ScaffoldMessenger.of(context).hideCurrentSnackBar();
-                                    ScaffoldMessenger.of(context).showSnackBar(
-                                        SnackBar(
-                                            content: Text('Failed to add ${product.name}'),
-                                            backgroundColor: Colors.red,
-                                            duration: const Duration(seconds: 2)));
-                                  }
-                                });
-                              }
-                            : null,
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: _dark,
-                          foregroundColor: _offWhite,
-                          disabledBackgroundColor: _taupe,
-                          padding: const EdgeInsets.symmetric(vertical: 10),
-                          shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(4)),
-                        ),
-                        child: const Text('Add to Cart',
-                            style: TextStyle(fontSize: 13)),
-                      ),
-                    ),
-                  ],
+                  ),
+                ],
+              ),
+            ),
+          ),
+          Positioned(
+            top: 8,
+            right: 8,
+            child: GestureDetector(
+              onTap: _toggleWishlist,
+              child: AnimatedOpacity(
+                duration: const Duration(milliseconds: 200),
+                opacity: _inWishlist ? 1.0 : 0.35,
+                child: Container(
+                  decoration: BoxDecoration(
+                    color: _inWishlist
+                        ? Colors.red.shade50
+                        : Colors.transparent,
+                    shape: BoxShape.circle,
+                  ),
+                  padding: const EdgeInsets.all(6),
+                  child: Icon(
+                    _inWishlist ? Icons.favorite : Icons.favorite_border,
+                    color: _inWishlist ? Colors.red : _dark.withOpacity(0.9),
+                    size: 20,
+                  ),
                 ),
               ),
-            ],
+            ),
           ),
-        ),
+        ],
       ),
     );
   }
@@ -667,16 +782,66 @@ class _CategoriesSection extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final categories = [
-      (DeweyCategory.generalWorks,   '000s · General Works',         Icons.public_outlined,                  const Color(0xFF5C7A9E)),
-      (DeweyCategory.philosophy,     '100s · Philosophy',            Icons.psychology_outlined,              const Color(0xFF7B5EA7)),
-      (DeweyCategory.religion,       '200s · Religion',              Icons.temple_hindu_outlined,            const Color(0xFFB07D4A)),
-      (DeweyCategory.socialSciences, '300s · Social Sciences',       Icons.groups_outlined,                  const Color(0xFF4A8B6F)),
-      (DeweyCategory.language,       '400s · Language',              Icons.translate_outlined,               const Color(0xFF3A8FA8)),
-      (DeweyCategory.pureScience,    '500s · Pure Science',          Icons.science_outlined,                 const Color(0xFF2E7D6B)),
-      (DeweyCategory.technology,     '600s · Technology',            Icons.precision_manufacturing_outlined, const Color(0xFF5A6E8A)),
-      (DeweyCategory.arts,           '700s · Arts & Recreation',     Icons.palette_outlined,                 const Color(0xFFC0534A)),
-      (DeweyCategory.literature,     '800s · Literature',            Icons.auto_stories_outlined,            const Color(0xFF8D7B68)),
-      (DeweyCategory.history,        '900s · History & Geography',   Icons.travel_explore_outlined,          const Color(0xFF7A6E4A)),
+      (
+        DeweyCategory.generalWorks,
+        '000s · General Works',
+        Icons.public_outlined,
+        const Color(0xFF5C7A9E),
+      ),
+      (
+        DeweyCategory.philosophy,
+        '100s · Philosophy',
+        Icons.psychology_outlined,
+        const Color(0xFF7B5EA7),
+      ),
+      (
+        DeweyCategory.religion,
+        '200s · Religion',
+        Icons.temple_hindu_outlined,
+        const Color(0xFFB07D4A),
+      ),
+      (
+        DeweyCategory.socialSciences,
+        '300s · Social Sciences',
+        Icons.groups_outlined,
+        const Color(0xFF4A8B6F),
+      ),
+      (
+        DeweyCategory.language,
+        '400s · Language',
+        Icons.translate_outlined,
+        const Color(0xFF3A8FA8),
+      ),
+      (
+        DeweyCategory.pureScience,
+        '500s · Pure Science',
+        Icons.science_outlined,
+        const Color(0xFF2E7D6B),
+      ),
+      (
+        DeweyCategory.technology,
+        '600s · Technology',
+        Icons.precision_manufacturing_outlined,
+        const Color(0xFF5A6E8A),
+      ),
+      (
+        DeweyCategory.arts,
+        '700s · Arts & Recreation',
+        Icons.palette_outlined,
+        const Color(0xFFC0534A),
+      ),
+      (
+        DeweyCategory.literature,
+        '800s · Literature',
+        Icons.auto_stories_outlined,
+        const Color(0xFF8D7B68),
+      ),
+      (
+        DeweyCategory.history,
+        '900s · History & Geography',
+        Icons.travel_explore_outlined,
+        const Color(0xFF7A6E4A),
+      ),
     ];
 
     return Container(
@@ -730,7 +895,7 @@ class _CategoriesSection extends StatelessWidget {
                               color: cat.$4.withValues(alpha: 0.30),
                               blurRadius: 8,
                               offset: const Offset(0, 3),
-                            )
+                            ),
                           ]
                         : [],
                   ),
@@ -758,10 +923,11 @@ class _CategoriesSection extends StatelessWidget {
                         Text(
                           'Tap to clear',
                           style: TextStyle(
-                              color: cat.$4.withValues(alpha: 0.7),
-                              fontSize: 10),
+                            color: cat.$4.withValues(alpha: 0.7),
+                            fontSize: 10,
+                          ),
                         ),
-                      ]
+                      ],
                     ],
                   ),
                 ),
@@ -787,10 +953,7 @@ class _HeroSection extends StatelessWidget {
         image: DecorationImage(
           image: AssetImage('assets/images/library.jpg'),
           fit: BoxFit.cover,
-          colorFilter: ColorFilter.mode(
-            Color(0xAA000000),
-            BlendMode.darken,
-          ),
+          colorFilter: ColorFilter.mode(Color(0xAA000000), BlendMode.darken),
         ),
       ),
       padding: const EdgeInsets.symmetric(vertical: 100, horizontal: 48),
@@ -819,13 +982,15 @@ class _HeroSection extends StatelessWidget {
             style: ElevatedButton.styleFrom(
               backgroundColor: _dark,
               foregroundColor: _offWhite,
-              padding:
-                  const EdgeInsets.symmetric(horizontal: 40, vertical: 18),
+              padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 18),
               shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(4)),
+                borderRadius: BorderRadius.circular(4),
+              ),
             ),
-            child: const Text('Browse Books',
-                style: TextStyle(fontSize: 16, letterSpacing: 1)),
+            child: const Text(
+              'Browse Books',
+              style: TextStyle(fontSize: 16, letterSpacing: 1),
+            ),
           ),
         ],
       ),
@@ -838,14 +1003,26 @@ class _FeaturesSection extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final features = [
-      (Icons.local_shipping_outlined, 'Free Shipping',
-          'On all orders over \$30'),
-      (Icons.verified_outlined, 'Curated Selection',
-          'Hand-picked titles across every genre'),
-      (Icons.replay_outlined, 'Easy Returns',
-          '30-day hassle-free return policy'),
-      (Icons.headset_mic_outlined, '24/7 Support',
-          'We\'re here whenever you need us'),
+      (
+        Icons.local_shipping_outlined,
+        'Free Shipping',
+        'On all orders over \$30',
+      ),
+      (
+        Icons.verified_outlined,
+        'Curated Selection',
+        'Hand-picked titles across every genre',
+      ),
+      (
+        Icons.replay_outlined,
+        'Easy Returns',
+        '30-day hassle-free return policy',
+      ),
+      (
+        Icons.headset_mic_outlined,
+        '24/7 Support',
+        'We\'re here whenever you need us',
+      ),
     ];
 
     return Container(
@@ -856,25 +1033,31 @@ class _FeaturesSection extends StatelessWidget {
         runSpacing: 32,
         alignment: WrapAlignment.center,
         children: features
-            .map((f) => SizedBox(
-                  width: 220,
-                  child: Column(
-                    children: [
-                      Icon(f.$1, color: _medium, size: 36),
-                      const SizedBox(height: 12),
-                      Text(f.$2,
-                          style: const TextStyle(
-                              color: _dark,
-                              fontSize: 16,
-                              fontWeight: FontWeight.w700)),
-                      const SizedBox(height: 6),
-                      Text(f.$3,
-                          textAlign: TextAlign.center,
-                          style:
-                              const TextStyle(color: _medium, fontSize: 13)),
-                    ],
-                  ),
-                ))
+            .map(
+              (f) => SizedBox(
+                width: 220,
+                child: Column(
+                  children: [
+                    Icon(f.$1, color: _medium, size: 36),
+                    const SizedBox(height: 12),
+                    Text(
+                      f.$2,
+                      style: const TextStyle(
+                        color: _dark,
+                        fontSize: 16,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    Text(
+                      f.$3,
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(color: _medium, fontSize: 13),
+                    ),
+                  ],
+                ),
+              ),
+            )
             .toList(),
       ),
     );
