@@ -6,6 +6,7 @@ class ProductReview {
   final String customerEmail;
   final int? rating;
   final String? comment;
+  final String status;
   final DateTime createdAt;
   final DateTime updatedAt;
 
@@ -17,6 +18,7 @@ class ProductReview {
     required this.customerEmail,
     this.rating,
     this.comment,
+    required this.status,
     required this.createdAt,
     required this.updatedAt,
   });
@@ -30,6 +32,7 @@ class ProductReview {
       customerEmail: json['customer_email'] ?? '',
       rating: json['rating'],
       comment: json['comment'],
+      status: json['status'] ?? 'pending',
       createdAt: DateTime.parse(json['created_at'] ?? DateTime.now().toIso8601String()),
       updatedAt: DateTime.parse(json['updated_at'] ?? DateTime.now().toIso8601String()),
     );
@@ -44,6 +47,7 @@ class ProductReview {
       'customer_email': customerEmail,
       'rating': rating,
       'comment': comment,
+      'status': status,
       'created_at': createdAt.toIso8601String(),
       'updated_at': updatedAt.toIso8601String(),
     };

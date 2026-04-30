@@ -3,4 +3,4 @@ name: List Reviews
 method: GET
 url: '{{baseUrl}}/api/reviews/'
 order: 1000
-description: Get all approved reviews. Public endpoint.
+description: Get all accepted reviews. Public endpoint.

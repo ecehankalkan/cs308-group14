@@ -222,7 +222,7 @@ class PaymentCard(models.Model):
 class ProductReview(models.Model):
     class Status(models.TextChoices):
         PENDING  = 'pending',  'Pending Approval'
-        APPROVED = 'approved', 'Approved'
+        ACCEPTED = 'accepted', 'Accepted'
         REJECTED = 'rejected', 'Rejected'
 
     product       = models.ForeignKey(Product, on_delete=models.CASCADE, related_name='reviews')

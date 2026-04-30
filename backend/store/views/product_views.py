@@ -136,7 +136,7 @@ class ProductPriceView(APIView):
 
 class ProductReviewListCreateView(generics.ListCreateAPIView):
     """
-    GET  /api/products/<product_id>/reviews/ — public (only APPROVED reviews)
+    GET  /api/products/<product_id>/reviews/ — public (only ACCEPTED reviews)
     POST /api/products/<product_id>/reviews/ — authenticated users (must have purchased + delivered)
     """
     serializer_class = ProductReviewSerializer
@@ -144,10 +144,10 @@ class ProductReviewListCreateView(generics.ListCreateAPIView):
 
     def get_queryset(self):
         product_id = self.kwargs.get('product_id')
-        # Only show approved reviews to public
+        # Only show accepted reviews to public
         return ProductReview.objects.filter(
             product_id=product_id, 
-            status=ProductReview.Status.APPROVED
+            status=ProductReview.Status.ACCEPTED
         ).order_by('-created_at')
 
     def perform_create(self, serializer):

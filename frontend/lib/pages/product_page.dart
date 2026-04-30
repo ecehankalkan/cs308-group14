@@ -36,6 +36,7 @@ class _ProductPageState extends State<ProductPage> {
   Product? _backendProduct;
   int _selectedQuantity = 1;
   bool _isLoadingProduct = true;
+  late bool _inWishlist;
   List<ProductReview> _reviews = [];
   bool _isLoadingReviews = true;
   double _avgRating = 0.0;
@@ -49,6 +50,7 @@ class _ProductPageState extends State<ProductPage> {
   @override
   void initState() {
     super.initState();
+    _inWishlist = _wishlistService.contains(widget.product.id);
     _loadProductFromBackend();
     _loadReviews();
   }
@@ -146,6 +148,84 @@ class _ProductPageState extends State<ProductPage> {
         );
       }
     }
+  }
+
+  void _toggleWishlist() {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) {
+      _showAuthDialog();
+      return;
+    }
+
+    setState(() {
+      if (_inWishlist) {
+        _wishlistService.remove(_displayProduct.id);
+        _inWishlist = false;
+        ScaffoldMessenger.of(context).hideCurrentSnackBar();
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('${_displayProduct.name} removed from wishlist'),
+            duration: const Duration(seconds: 2),
+          ),
+        );
+      } else {
+        _wishlistService.add(_displayProduct);
+        _inWishlist = true;
+        ScaffoldMessenger.of(context).hideCurrentSnackBar();
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('${_displayProduct.name} added to wishlist!'),
+            duration: const Duration(seconds: 2),
+          ),
+        );
+      }
+    });
+  }
+
+  void _showAuthDialog() {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          backgroundColor: _offWhite,
+          title: const Text(
+            'Log in to your account',
+            style: TextStyle(
+              color: _dark,
+              fontSize: 18,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          content: const Text(
+            'You need to be logged in to add items to your wishlist.',
+            style: TextStyle(color: _medium, fontSize: 14),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () {
+                Navigator.pop(context);
+                Navigator.pushNamed(context, '/signup');
+              },
+              child: const Text(
+                'Sign Up',
+                style: TextStyle(color: _dark, fontWeight: FontWeight.w600),
+              ),
+            ),
+            ElevatedButton(
+              onPressed: () {
+                Navigator.pop(context);
+                Navigator.pushNamed(context, '/login');
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: _dark,
+                foregroundColor: _offWhite,
+              ),
+              child: const Text('Log In'),
+            ),
+          ],
+        );
+      },
+    );
   }
 
   @override
@@ -479,29 +559,30 @@ class _ProductPageState extends State<ProductPage> {
         const SizedBox(width: 12),
         SizedBox(
           height: 48,
-          child: OutlinedButton(
-            onPressed: () {
-              _wishlistService.add(_displayProduct);
-              ScaffoldMessenger.of(context).hideCurrentSnackBar();
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                  content: Text('${_displayProduct.name} added to wishlist!'),
-                  backgroundColor: _dark,
-                  duration: const Duration(seconds: 2),
+          child: MouseRegion(
+            cursor: SystemMouseCursors.click,
+            child: GestureDetector(
+              onTap: _toggleWishlist,
+              child: AnimatedOpacity(
+                duration: const Duration(milliseconds: 200),
+                opacity: _inWishlist ? 1.0 : 0.35,
+                child: Container(
+                  width: 48,
+                  alignment: Alignment.center,
+                  decoration: BoxDecoration(
+                    color: _inWishlist ? Colors.red.shade50 : Colors.transparent,
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(
+                      color: _inWishlist ? Colors.red : _dark,
+                    ),
+                  ),
+                  child: Icon(
+                    _inWishlist ? Icons.favorite : Icons.favorite_border,
+                    color: _inWishlist ? Colors.red : _dark.withOpacity(0.9),
+                    size: 20,
+                  ),
                 ),
-              );
-            },
-            style: OutlinedButton.styleFrom(
-              foregroundColor: _dark,
-              side: const BorderSide(color: _dark),
-              padding: const EdgeInsets.symmetric(horizontal: 24),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(8),
               ),
-            ),
-            child: const Text(
-              'Add to Wishlist',
-              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
             ),
           ),
         ),

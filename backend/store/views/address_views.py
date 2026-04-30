@@ -10,6 +10,11 @@ class DeliveryAddressListView(generics.ListCreateAPIView):
     serializer_class = DeliveryAddressSerializer
     permission_classes = [permissions.IsAuthenticated]
 
+    def get_permissions(self):
+        if self.request.method == 'OPTIONS':
+            return [permissions.AllowAny()]
+        return super().get_permissions()
+
     def get_queryset(self):
         return DeliveryAddress.objects.filter(customer=self.request.user)
 
@@ -26,6 +31,11 @@ class DeliveryAddressDetailView(generics.RetrieveUpdateDestroyAPIView):
     """GET / PATCH / DELETE /api/addresses/<id>/"""
     serializer_class = DeliveryAddressSerializer
     permission_classes = [permissions.IsAuthenticated]
+
+    def get_permissions(self):
+        if self.request.method == 'OPTIONS':
+            return [permissions.AllowAny()]
+        return super().get_permissions()
 
     def get_queryset(self):
         return DeliveryAddress.objects.filter(customer=self.request.user)
@@ -46,6 +56,11 @@ class PaymentCardListView(generics.ListCreateAPIView):
     serializer_class = PaymentCardSerializer
     permission_classes = [permissions.IsAuthenticated]
 
+    def get_permissions(self):
+        if self.request.method == 'OPTIONS':
+            return [permissions.AllowAny()]
+        return super().get_permissions()
+
     def get_queryset(self):
         return PaymentCard.objects.filter(customer=self.request.user)
 
@@ -62,6 +77,11 @@ class PaymentCardDetailView(generics.RetrieveUpdateDestroyAPIView):
     """GET / PATCH / DELETE /api/payment-cards/<id>/"""
     serializer_class = PaymentCardSerializer
     permission_classes = [permissions.IsAuthenticated]
+
+    def get_permissions(self):
+        if self.request.method == 'OPTIONS':
+            return [permissions.AllowAny()]
+        return super().get_permissions()
 
     def get_queryset(self):
         return PaymentCard.objects.filter(customer=self.request.user)
