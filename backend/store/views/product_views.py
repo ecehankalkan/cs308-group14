@@ -1,10 +1,10 @@
 from django.db.models import Q
-from rest_framework import generics, permissions, status
+from rest_framework import generics, permissions, status, serializers
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from ..models import Customer, Product
-from ..serializers import ProductSerializer
+from ..models import Customer, Product, ProductReview, OrderItem, Order
+from ..serializers import ProductSerializer, ProductReviewSerializer
 
 
 class IsSalesManager(permissions.BasePermission):
@@ -132,3 +132,72 @@ class ProductPriceView(APIView):
 
         product.save()
         return Response(ProductSerializer(product).data)
+
+
+class ProductReviewListCreateView(generics.ListCreateAPIView):
+    """
+    GET  /api/products/<product_id>/reviews/ — public (only APPROVED reviews)
+    POST /api/products/<product_id>/reviews/ — authenticated users (must have purchased + delivered)
+    """
+    serializer_class = ProductReviewSerializer
+    permission_classes = [permissions.AllowAny]
+
+    def get_queryset(self):
+        product_id = self.kwargs.get('product_id')
+        # Only show approved reviews to public
+        return ProductReview.objects.filter(
+            product_id=product_id, 
+            status=ProductReview.Status.APPROVED
+        ).order_by('-created_at')
+
+    def perform_create(self, serializer):
+        product_id = self.kwargs.get('product_id')
+        product = Product.objects.get(pk=product_id)
+        
+        # Check if user has purchased this product and it's been delivered
+        order_item = OrderItem.objects.filter(
+            order__customer=self.request.user,
+            order__status=Order.Status.DELIVERED,
+            product_id=product_id
+        ).first()
+        
+        if not order_item:
+            raise serializers.ValidationError(
+                "You can only review products you have purchased and received."
+            )
+        
+        serializer.save(
+            product=product,
+            customer=self.request.user,
+            order_item=order_item
+        )
+
+    def get_permissions(self):
+        if self.request.method == 'POST':
+            return [permissions.IsAuthenticated()]
+        return [permissions.AllowAny()]
+
+
+class ProductReviewDetailView(generics.RetrieveUpdateDestroyAPIView):
+    """
+    GET    /api/reviews/<id>/ — public
+    PUT    /api/reviews/<id>/ — review owner only
+    DELETE /api/reviews/<id>/ — review owner only
+    """
+    queryset = ProductReview.objects.all()
+    serializer_class = ProductReviewSerializer
+
+    def get_permissions(self):
+        if self.request.method == 'GET':
+            return [permissions.AllowAny()]
+        return [permissions.IsAuthenticated()]
+
+    def perform_update(self, serializer):
+        if self.get_object().customer != self.request.user:
+            raise permissions.PermissionDenied("You can only edit your own reviews.")
+        serializer.save()
+
+    def perform_destroy(self, instance):
+        if instance.customer != self.request.user:
+            raise permissions.PermissionDenied("You can only delete your own reviews.")
+        instance.delete()

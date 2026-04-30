@@ -6,6 +6,34 @@ import '../services/product_service.dart';
 import '../services/wishlist_service.dart';
 import '../models/product.dart';
 import 'product_page.dart';
+import '../services/review_service.dart';
+
+double _normalizeRating(double? value) {
+  if (value == null || value.isNaN || value.isInfinite) return 0.0;
+  final clamped = value.clamp(0.0, 5.0);
+  return (clamped * 2).round() / 2.0;
+}
+
+Widget buildStarIndicatorSmall(double avg) {
+  final safeAvg = _normalizeRating(avg);
+  final rounded = safeAvg;
+  final whole = rounded.floor();
+  final hasHalf = (rounded - whole) >= 0.5;
+  return Row(
+    mainAxisSize: MainAxisSize.min,
+    children: [
+      Row(
+        children: List.generate(5, (i) {
+          if (i < whole) return const Icon(Icons.star, color: _dark, size: 12);
+          if (i == whole && hasHalf) return const Icon(Icons.star_half, color: _dark, size: 12);
+          return const Icon(Icons.star_border, color: _dark, size: 12);
+        }),
+      ),
+      const SizedBox(width: 6),
+      Text(safeAvg.toStringAsFixed(1), style: const TextStyle(color: _dark, fontSize: 11, fontWeight: FontWeight.w700)),
+    ],
+  );
+}
 
 const _dark = Color(0xFF8D7B68);
 const _medium = Color(0xFFA4907C);
@@ -66,6 +94,8 @@ class _HomePageState extends State<HomePage> {
     super.initState();
     _loadProducts();
   }
+
+  
 
   Future<void> _loadProducts() async {
     setState(() => _isLoading = true);
@@ -158,6 +188,11 @@ class _HomePageState extends State<HomePage> {
             icon: const Icon(Icons.shopping_cart_outlined, color: _offWhite),
             tooltip: 'Cart',
             onPressed: () => Navigator.pushNamed(context, '/cart'),
+          ),
+          IconButton(
+            icon: const Icon(Icons.favorite_border, color: _offWhite),
+            tooltip: 'Wishlist',
+            onPressed: () => Navigator.pushNamed(context, '/wishlist'),
           ),
           StreamBuilder<User?>(
             stream: FirebaseAuth.instance.authStateChanges(),
@@ -298,6 +333,8 @@ class _HomePageState extends State<HomePage> {
             ),
     );
   }
+
+  
 }
 
 // ─── Search + Filter Bar ─────────────────────────────────────────────────────
@@ -517,11 +554,30 @@ class _ProductCard extends StatefulWidget {
 
 class _ProductCardState extends State<_ProductCard> {
   late bool _inWishlist;
+  double _avgRating = 0.0;
 
   @override
   void initState() {
     super.initState();
     _inWishlist = WishlistService().contains(widget.product.id);
+    _avgRating = 0.0;
+    // load reviews to compute average rating for this product
+    (() async {
+      try {
+        final prodId = int.tryParse(widget.product.id) ?? 0;
+        final reviews = await ReviewService().fetchProductReviews(prodId);
+        final ratings = reviews.where((r) => r.rating != null).map((r) => r.rating!.toDouble()).toList();
+        if (ratings.isEmpty) {
+          if (!mounted) return;
+          setState(() => _avgRating = 0.0);
+        } else {
+          final sum = ratings.reduce((a, b) => a + b);
+          final avg = sum / ratings.length;
+          if (!mounted) return;
+          setState(() => _avgRating = _normalizeRating(avg));
+        }
+      } catch (_) {}
+    })();
   }
 
   void _toggleWishlist() {
@@ -650,16 +706,25 @@ class _ProductCardState extends State<_ProductCard> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(
-                          product.name,
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                          style: TextStyle(
-                            color: _categoryColors[product.category],
-                            fontSize: 14,
-                            fontWeight: FontWeight.w700,
-                            height: 1.3,
-                          ),
+                        Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Expanded(
+                              child: Text(
+                                product.name,
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
+                                style: TextStyle(
+                                  color: _categoryColors[product.category],
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w700,
+                                  height: 1.3,
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            buildStarIndicatorSmall(_avgRating),
+                          ],
                         ),
                         const SizedBox(height: 6),
                         Text(

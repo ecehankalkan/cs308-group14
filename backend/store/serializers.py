@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import Customer, Product, Cart, Order, OrderItem, DeliveryAddress, PaymentCard
+from .models import Customer, Product, Cart, Order, OrderItem, DeliveryAddress, PaymentCard, ProductReview
 
 
 class RegisterSerializer(serializers.ModelSerializer):
@@ -92,3 +92,13 @@ class PaymentCardSerializer(serializers.ModelSerializer):
         model = PaymentCard
         fields = ['id', 'label', 'card_number', 'holder_name', 'expiry_date', 'is_default', 'created_at']
         read_only_fields = ['id', 'created_at']
+
+
+class ProductReviewSerializer(serializers.ModelSerializer):
+    customer_name  = serializers.CharField(source='customer.name', read_only=True)
+    customer_email = serializers.CharField(source='customer.email', read_only=True)
+
+    class Meta:
+        model = ProductReview
+        fields = ['id', 'product', 'customer', 'customer_name', 'customer_email', 'rating', 'comment', 'status', 'created_at', 'updated_at']
+        read_only_fields = ['id', 'customer', 'status', 'created_at', 'updated_at']

@@ -1,9 +1,11 @@
 class OrderItem {
+  final int? productId;
   final String productName;
   final int quantity;
   final double unitPrice;
 
   const OrderItem({
+    this.productId,
     required this.productName,
     required this.quantity,
     required this.unitPrice,
@@ -13,6 +15,7 @@ class OrderItem {
 
   factory OrderItem.fromJson(Map<String, dynamic> json) {
     return OrderItem(
+      productId: (json['product_id'] as num?)?.toInt(),
       productName: json['product_name'] as String? ?? 'Unknown Product',
       quantity: (json['quantity'] as num?)?.toInt() ?? 0,
       unitPrice: double.tryParse(json['unit_price']?.toString() ?? '') ?? 0.0,

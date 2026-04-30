@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../models/order.dart';
 import '../services/user_service.dart';
+import '../services/review_service.dart';
 import '../services/payment_service.dart';
 
 const _dark = Color(0xFF8D7B68);
@@ -1004,7 +1005,7 @@ class _OrderCardState extends State<_OrderCard> {
                       style: TextStyle(color: _dark, fontSize: 13, fontWeight: FontWeight.w700),
                     ),
                     const SizedBox(height: 8),
-                    ...order.items.map((item) => _OrderItemRow(item: item)),
+                    ...order.items.map((item) => _OrderItemRow(item: item, orderStatus: order.status)),
                     const SizedBox(height: 10),
                     const Divider(color: _taupe, height: 1),
                     const SizedBox(height: 10),
@@ -1062,7 +1063,8 @@ class _DetailRow extends StatelessWidget {
 
 class _OrderItemRow extends StatelessWidget {
   final OrderItem item;
-  const _OrderItemRow({required this.item});
+  final String orderStatus;
+  const _OrderItemRow({required this.item, required this.orderStatus});
 
   @override
   Widget build(BuildContext context) {
@@ -1094,6 +1096,92 @@ class _OrderItemRow extends StatelessWidget {
               ),
             ],
           ),
+          const SizedBox(height: 8),
+          if (orderStatus == 'delivered' && item.productId != null)
+            Align(
+              alignment: Alignment.centerRight,
+              child: OutlinedButton(
+                onPressed: () async {
+                  final reviewService = ReviewService();
+                  int rating = 0;
+                  final commentController = TextEditingController();
+                  bool isSubmitting = false;
+
+                  await showDialog(
+                    context: context,
+                    builder: (context) {
+                      return StatefulBuilder(
+                        builder: (context, setState) {
+                          return AlertDialog(
+                            title: const Text('Leave a Review'),
+                            content: Column(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Row(
+                                  children: List.generate(5, (i) {
+                                    return IconButton(
+                                      icon: Icon(i < rating ? Icons.star : Icons.star_border, color: _dark),
+                                      onPressed: () => setState(() => rating = i + 1),
+                                    );
+                                  }),
+                                ),
+                                const SizedBox(height: 8),
+                                TextField(
+                                  controller: commentController,
+                                  maxLines: 4,
+                                  decoration: const InputDecoration(hintText: 'Optional comment'),
+                                ),
+                              ],
+                            ),
+                            actions: [
+                              TextButton(
+                                onPressed: isSubmitting ? null : () {
+                                  Navigator.of(context).pop();
+                                },
+                                child: const Text('Cancel'),
+                              ),
+                              ElevatedButton(
+                                onPressed: isSubmitting
+                                    ? null
+                                    : () async {
+                                        if (rating == 0 && commentController.text.trim().isEmpty) {
+                                          ScaffoldMessenger.of(context).showSnackBar(
+                                            const SnackBar(content: Text('Please provide a rating or a comment.'), backgroundColor: Colors.red),
+                                          );
+                                          return;
+                                        }
+                                        setState(() => isSubmitting = true);
+                                        try {
+                                          await reviewService.createReview(
+                                            productId: item.productId!,
+                                            rating: rating > 0 ? rating : null,
+                                            comment: commentController.text.trim().isNotEmpty ? commentController.text.trim() : null,
+                                          );
+                                          Navigator.of(context).pop();
+                                          ScaffoldMessenger.of(context).showSnackBar(
+                                            const SnackBar(content: Text('Review submitted — pending approval.'), backgroundColor: Colors.green),
+                                          );
+                                        } catch (e) {
+                                          setState(() => isSubmitting = false);
+                                          ScaffoldMessenger.of(context).showSnackBar(
+                                            SnackBar(content: Text('Failed to submit review: $e'), backgroundColor: Colors.red),
+                                          );
+                                        }
+                                      },
+                                child: isSubmitting
+                                    ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
+                                    : const Text('Submit'),
+                              ),
+                            ],
+                          );
+                        },
+                      );
+                    },
+                  );
+                },
+                child: const Text('Leave Review'),
+              ),
+            ),
         ],
       ),
     );

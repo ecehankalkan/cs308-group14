@@ -213,3 +213,34 @@ class PaymentCard(models.Model):
     def __str__(self):
         label_prefix = f"[{self.label}] " if self.label else ""
         return f'{label_prefix}{self.holder_name} — **** **** **** {self.card_number[-4:]}'
+
+
+# ---------------------------------------------------------------------------
+# Product Review (Comment and Rating)
+# ---------------------------------------------------------------------------
+
+class ProductReview(models.Model):
+    class Status(models.TextChoices):
+        PENDING  = 'pending',  'Pending Approval'
+        APPROVED = 'approved', 'Approved'
+        REJECTED = 'rejected', 'Rejected'
+
+    product       = models.ForeignKey(Product, on_delete=models.CASCADE, related_name='reviews')
+    customer      = models.ForeignKey(Customer, on_delete=models.CASCADE, related_name='product_reviews')
+    order_item    = models.ForeignKey(OrderItem, on_delete=models.CASCADE, related_name='reviews', null=True, blank=True)
+    rating        = models.PositiveIntegerField(null=True, blank=True, validators=[MinValueValidator(1), MaxValueValidator(5)])
+    comment       = models.TextField(blank=True, null=True)
+    status        = models.CharField(max_length=20, choices=Status.choices, default=Status.PENDING, db_index=True)
+    created_at    = models.DateTimeField(auto_now_add=True)
+    updated_at    = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        unique_together = [['product', 'customer']]
+        indexes = [
+            models.Index(fields=['product']),
+            models.Index(fields=['customer']),
+            models.Index(fields=['created_at']),
+        ]
+
+    def __str__(self):
+        return f'Review by {self.customer.email} on {self.product.name}'
