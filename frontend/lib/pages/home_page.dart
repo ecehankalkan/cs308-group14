@@ -525,6 +525,14 @@ class _ProductCardState extends State<_ProductCard> {
   }
 
   void _toggleWishlist() {
+    // Check if user is authenticated
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) {
+      // Show login/signup dialog
+      _showAuthDialog();
+      return;
+    }
+
     setState(() {
       if (_inWishlist) {
         WishlistService().remove(widget.product.id);
@@ -548,6 +556,52 @@ class _ProductCardState extends State<_ProductCard> {
         );
       }
     });
+  }
+
+  void _showAuthDialog() {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          backgroundColor: _offWhite,
+          title: const Text(
+            'Log in to your account',
+            style: TextStyle(
+              color: _dark,
+              fontSize: 18,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          content: const Text(
+            'You need to be logged in to add items to your wishlist.',
+            style: TextStyle(color: _medium, fontSize: 14),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () {
+                Navigator.pop(context);
+                Navigator.pushNamed(context, '/signup');
+              },
+              child: const Text(
+                'Sign Up',
+                style: TextStyle(color: _dark, fontWeight: FontWeight.w600),
+              ),
+            ),
+            ElevatedButton(
+              onPressed: () {
+                Navigator.pop(context);
+                Navigator.pushNamed(context, '/login');
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: _dark,
+                foregroundColor: _offWhite,
+              ),
+              child: const Text('Log In'),
+            ),
+          ],
+        );
+      },
+    );
   }
 
   @override
