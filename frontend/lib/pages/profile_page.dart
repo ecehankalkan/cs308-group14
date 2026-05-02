@@ -5,6 +5,7 @@ import '../models/order.dart';
 import '../services/user_service.dart';
 import '../services/review_service.dart';
 import '../services/payment_service.dart';
+import '../services/order_service.dart';
 
 const _dark = Color(0xFF8D7B68);
 const _medium = Color(0xFFA4907C);
@@ -448,7 +449,10 @@ class _ProfilePageState extends State<ProfilePage> {
             ..._orders.map(
               (order) => Padding(
                 padding: const EdgeInsets.only(bottom: 12),
-                child: _OrderCard(order: order),
+                child: _OrderCard(
+                  order: order,
+                  onOrderChanged: _loadData,
+                ),
               ),
             ),
           const SizedBox(height: 32),
@@ -892,7 +896,8 @@ class _InfoRow extends StatelessWidget {
 
 class _OrderCard extends StatefulWidget {
   final Order order;
-  const _OrderCard({required this.order});
+  final Future<void> Function()? onOrderChanged;
+  const _OrderCard({required this.order, this.onOrderChanged});
 
   @override
   State<_OrderCard> createState() => _OrderCardState();
@@ -1022,6 +1027,85 @@ class _OrderCardState extends State<_OrderCard> {
                         ),
                       ],
                     ),
+                    // ── Action Buttons ───────────────────────────────────────
+                    if (order.status == 'processing') ...[
+                      const SizedBox(height: 14),
+                      SizedBox(
+                        width: double.infinity,
+                        child: OutlinedButton.icon(
+                          icon: const Icon(Icons.cancel_outlined, size: 16),
+                          label: const Text('Cancel Order'),
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: Colors.red.shade700,
+                            side: BorderSide(color: Colors.red.shade300),
+                          ),
+                          onPressed: () async {
+                            final confirm = await showDialog<bool>(
+                              context: context,
+                              builder: (ctx) => AlertDialog(
+                                title: const Text('Cancel Order'),
+                                content: const Text('Are you sure you want to cancel this order? Stock will be restored.'),
+                                actions: [
+                                  TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('No')),
+                                  TextButton(
+                                    onPressed: () => Navigator.pop(ctx, true),
+                                    child: Text('Yes, Cancel', style: TextStyle(color: Colors.red.shade700)),
+                                  ),
+                                ],
+                              ),
+                            );
+                            if (confirm == true) {
+                              final ok = await OrderService().cancelOrRefundOrder(order.orderId, 'cancel');
+                              if (mounted) {
+                                ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                                  content: Text(ok ? 'Order cancelled.' : 'Failed to cancel order.'),
+                                  backgroundColor: ok ? Colors.green : Colors.red,
+                                ));
+                                if (ok) widget.onOrderChanged?.call();
+                              }
+                            }
+                          },
+                        ),
+                      ),
+                    ],
+                    if (order.status == 'delivered' &&
+                        DateTime.now().difference(order.createdAt).inDays <= 30) ...[
+                      const SizedBox(height: 14),
+                      SizedBox(
+                        width: double.infinity,
+                        child: OutlinedButton.icon(
+                          icon: const Icon(Icons.assignment_return_outlined, size: 16),
+                          label: const Text('Request Refund'),
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: _dark,
+                            side: const BorderSide(color: _taupe),
+                          ),
+                          onPressed: () async {
+                            final confirm = await showDialog<bool>(
+                              context: context,
+                              builder: (ctx) => AlertDialog(
+                                title: const Text('Request Refund'),
+                                content: const Text('Submit a refund request? The manager will review and notify you by email.'),
+                                actions: [
+                                  TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('No')),
+                                  TextButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Yes, Request')),
+                                ],
+                              ),
+                            );
+                            if (confirm == true) {
+                              final ok = await OrderService().cancelOrRefundOrder(order.orderId, 'refund');
+                              if (mounted) {
+                                ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                                  content: Text(ok ? 'Refund request submitted.' : 'Failed to submit refund request.'),
+                                  backgroundColor: ok ? Colors.green : Colors.red,
+                                ));
+                                if (ok) widget.onOrderChanged?.call();
+                              }
+                            }
+                          },
+                        ),
+                      ),
+                    ],
                   ],
                 ),
               ),
