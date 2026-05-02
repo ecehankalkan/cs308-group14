@@ -30,7 +30,7 @@ class _SalesDashboardPageState extends State<SalesDashboardPage>
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 3, vsync: this);
+    _tabController = TabController(length: 4, vsync: this);
     _loadProducts();
     _loadOrders();
   }
@@ -100,6 +100,7 @@ class _SalesDashboardPageState extends State<SalesDashboardPage>
             Tab(icon: Icon(Icons.inventory_2_outlined), text: 'Products'),
             Tab(icon: Icon(Icons.receipt_long_outlined), text: 'Orders'),
             Tab(icon: Icon(Icons.bar_chart_outlined), text: 'Revenue'),
+            Tab(icon: Icon(Icons.assignment_return_outlined), text: 'Refunds'),
           ],
         ),
         actions: [
@@ -130,6 +131,11 @@ class _SalesDashboardPageState extends State<SalesDashboardPage>
             onRefresh: _loadOrders,
           ),
           _RevenueTab(
+            loading: _loadingOrders,
+            orders: _orders,
+            onRefresh: _loadOrders,
+          ),
+          _RefundsTab(
             loading: _loadingOrders,
             orders: _orders,
             onRefresh: _loadOrders,
@@ -1190,6 +1196,155 @@ class _StatCard extends StatelessWidget {
               Text(label, style: theme.textTheme.bodySmall?.copyWith(color: Colors.grey)),
             ],
           ),
+        ),
+      ),
+    );
+  }
+}
+
+// ── Refunds tab ──────────────────────────────────────────────────────────────
+
+class _RefundsTab extends StatelessWidget {
+  final bool loading;
+  final List<Order> orders;
+  final Future<void> Function() onRefresh;
+
+  const _RefundsTab({
+    required this.loading,
+    required this.orders,
+    required this.onRefresh,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    if (loading) return const Center(child: CircularProgressIndicator());
+
+    final pending = orders.where((o) => o.status == 'refund-requested').toList();
+
+    return RefreshIndicator(
+      onRefresh: onRefresh,
+      child: Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Stat card
+            Row(
+              children: [
+                _StatCard(
+                  icon: Icons.assignment_return_outlined,
+                  label: 'Pending Refunds',
+                  value: '${pending.length}',
+                ),
+              ],
+            ),
+            const SizedBox(height: 24),
+            Text(
+              'Pending Refund Requests',
+              style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 16),
+            if (pending.isEmpty)
+              const Expanded(
+                child: Center(child: Text('No pending refund requests.')),
+              )
+            else
+              Expanded(
+                child: ListView.builder(
+                  itemCount: pending.length,
+                  itemBuilder: (ctx, i) {
+                    final order = pending[i];
+                    return _RefundRequestCard(
+                      order: order,
+                      onRefresh: onRefresh,
+                    );
+                  },
+                ),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _RefundRequestCard extends StatefulWidget {
+  final Order order;
+  final Future<void> Function() onRefresh;
+  const _RefundRequestCard({required this.order, required this.onRefresh});
+
+  @override
+  State<_RefundRequestCard> createState() => _RefundRequestCardState();
+}
+
+class _RefundRequestCardState extends State<_RefundRequestCard> {
+  bool _loading = false;
+
+  Future<void> _resolve(String decision) async {
+    setState(() => _loading = true);
+    final ok = await OrderService().resolveRefundRequest(widget.order.orderId, decision);
+    if (!mounted) return;
+    setState(() => _loading = false);
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+      content: Text(ok
+          ? (decision == 'accept' ? 'Refund accepted.' : 'Refund rejected.')
+          : 'Action failed. Please try again.'),
+      backgroundColor: ok ? Colors.green : Colors.red,
+    ));
+    if (ok) widget.onRefresh();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final order = widget.order;
+    return Card(
+      margin: const EdgeInsets.only(bottom: 12),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        child: Row(
+          children: [
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Order #${order.orderId}',
+                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    'Customer: ${order.customerEmail ?? order.customerName ?? 'Unknown'}',
+                    style: TextStyle(color: Colors.grey.shade600, fontSize: 13),
+                  ),
+                  Text(
+                    'Total: \$${order.totalAmount.toStringAsFixed(2)}',
+                    style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
+                  ),
+                ],
+              ),
+            ),
+            if (_loading)
+              const SizedBox(
+                width: 24, height: 24,
+                child: CircularProgressIndicator(strokeWidth: 2),
+              )
+            else ...[
+              OutlinedButton(
+                onPressed: () => _resolve('reject'),
+                style: OutlinedButton.styleFrom(foregroundColor: Colors.red),
+                child: const Text('Reject'),
+              ),
+              const SizedBox(width: 8),
+              ElevatedButton(
+                onPressed: () => _resolve('accept'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.green,
+                  foregroundColor: Colors.white,
+                ),
+                child: const Text('Accept'),
+              ),
+            ],
+          ],
         ),
       ),
     );
