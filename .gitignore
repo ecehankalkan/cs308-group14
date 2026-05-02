@@ -33,3 +33,6 @@ backend/store/management/
 # OS
 .DS_Store
 Thumbs.db
+
+# Claude Code memory (local per-developer, not for the repo)
+.claude/
