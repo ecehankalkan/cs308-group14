@@ -103,9 +103,13 @@ class Product(models.Model):
 
 class Order(models.Model):
     class Status(models.TextChoices):
-        PROCESSING = 'processing', 'Processing'
-        IN_TRANSIT = 'in-transit', 'In Transit'
-        DELIVERED  = 'delivered',  'Delivered'
+        PROCESSING       = 'processing',       'Processing'
+        IN_TRANSIT       = 'in-transit',       'In Transit'
+        DELIVERED        = 'delivered',        'Delivered'
+        CANCELLED        = 'cancelled',        'Cancelled'
+        REFUND_REQUESTED = 'refund-requested', 'Refund Requested'
+        REFUNDED         = 'refunded',         'Refunded'
+        REFUND_REJECTED  = 'refund-rejected',  'Refund Rejected'
 
     customer         = models.ForeignKey(Customer, on_delete=models.PROTECT, related_name='orders')
     total_price      = models.DecimalField(max_digits=12, decimal_places=2, validators=[MinValueValidator(0)])

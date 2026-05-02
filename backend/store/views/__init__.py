@@ -1,5 +1,5 @@
 from .auth_views import RegisterView, CustomTokenObtainPairView, MeView, ProfileView
-from .order_views import OrderListView, SalesOrderListView, SalesOrderInvoiceView
+from .order_views import OrderListView, SalesOrderListView, SalesOrderInvoiceView, OrderActionView, SalesRefundDecisionView
 from .product_views import ProductListView, ProductDetailView, ProductStockView, ProductDiscountView, ProductPriceView, ProductReviewListCreateView, ProductReviewDetailView, IsSalesManager, IsProductManager
 from .cart_views import CartView, CartItemView
 from .guest_cart_views import GuestCartView, GuestCartItemView
@@ -29,6 +29,8 @@ __all__ = [
     'OrderListView',
     'SalesOrderListView',
     'SalesOrderInvoiceView',
+    'OrderActionView',
+    'SalesRefundDecisionView',
     'checkout_view',
     'DeliveryAddressListView',
     'DeliveryAddressDetailView',

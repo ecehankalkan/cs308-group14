@@ -10,8 +10,10 @@ urlpatterns = [
     path('me/',            views.MeView.as_view(),           name='me'),
     path('profile/',       views.ProfileView.as_view(),      name='profile'),
     path('orders/',        views.OrderListView.as_view(),    name='orders'),
+    path('orders/<int:pk>/action/', views.OrderActionView.as_view(), name='order_action'),
     path('sales/orders/', views.SalesOrderListView.as_view(), name='sales_orders'),
     path('sales/orders/<int:pk>/invoice/', views.SalesOrderInvoiceView.as_view(), name='sales_order_invoice'),
+    path('sales/orders/<int:pk>/refund-decision/', views.SalesRefundDecisionView.as_view(), name='sales_refund_decision'),
 
     # Products (public list/detail + manager write operations)
     path('products/',                        views.ProductListView.as_view(),     name='product_list'),

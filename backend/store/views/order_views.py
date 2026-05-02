@@ -1,4 +1,8 @@
+from datetime import timedelta
+
+from django.core.mail import send_mail
 from django.http import HttpResponse
+from django.utils import timezone
 from rest_framework import generics, permissions, status
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -75,3 +79,119 @@ class SalesOrderInvoiceView(APIView):
         http_response = HttpResponse(pdf_bytes, content_type='application/pdf')
         http_response['Content-Disposition'] = f'{disposition}; filename="invoice_ORD-{order.id}.pdf"'
         return http_response
+
+
+class OrderActionView(APIView):
+    """POST /api/orders/<pk>/action/  — user cancels or requests a refund"""
+    permission_classes = [permissions.IsAuthenticated]
+
+    def post(self, request, pk):
+        try:
+            order = (
+                Order.objects
+                .prefetch_related('items__product')
+                .get(pk=pk, customer=request.user)
+            )
+        except Order.DoesNotExist:
+            return Response({'error': 'Order not found'}, status=status.HTTP_404_NOT_FOUND)
+
+        action = request.data.get('action')
+
+        if action == 'cancel':
+            if order.status != Order.Status.PROCESSING:
+                return Response(
+                    {'error': 'Only processing orders can be cancelled.'},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+            # Restock items
+            for item in order.items.all():
+                product = item.product
+                product.stock_quantity += item.quantity
+                product.save(update_fields=['stock_quantity'])
+            order.status = Order.Status.CANCELLED
+            order.save(update_fields=['status'])
+            return Response({'message': 'Order cancelled successfully.', 'status': order.status})
+
+        if action == 'refund':
+            if order.status != Order.Status.DELIVERED:
+                return Response(
+                    {'error': 'Only delivered orders are eligible for a refund.'},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+            if timezone.now() - order.created_at > timedelta(days=30):
+                return Response(
+                    {'error': 'Refund window has expired (30 days).'},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+            order.status = Order.Status.REFUND_REQUESTED
+            order.save(update_fields=['status'])
+            return Response({'message': 'Refund requested successfully.', 'status': order.status})
+
+        return Response({'error': 'Invalid action. Use "cancel" or "refund".'}, status=status.HTTP_400_BAD_REQUEST)
+
+
+class SalesRefundDecisionView(APIView):
+    """POST /api/sales/orders/<pk>/refund-decision/ — manager accepts or rejects a refund"""
+    permission_classes = [permissions.AllowAny]
+
+    def post(self, request, pk):
+        try:
+            order = (
+                Order.objects
+                .prefetch_related('items__product')
+                .get(pk=pk)
+            )
+        except Order.DoesNotExist:
+            return Response({'error': 'Order not found'}, status=status.HTTP_404_NOT_FOUND)
+
+        if order.status != Order.Status.REFUND_REQUESTED:
+            return Response(
+                {'error': 'Order is not pending a refund request.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        decision = request.data.get('decision')
+        customer_email = order.customer.email
+        order_ref = f'ORD-{order.id}'
+        amount = float(order.total_price)
+
+        if decision == 'accept':
+            # Restock items
+            for item in order.items.all():
+                product = item.product
+                product.stock_quantity += item.quantity
+                product.save(update_fields=['stock_quantity'])
+            order.status = Order.Status.REFUNDED
+            order.save(update_fields=['status'])
+            send_mail(
+                subject=f'Refund Accepted for Order {order_ref}',
+                message=(
+                    f'Hello,\n\n'
+                    f'Your refund request for order {order_ref} has been ACCEPTED.\n\n'
+                    f'The amount of ${amount:.2f} will be credited back to your original payment method.\n\n'
+                    f'Thank you,\nInkCloud Team'
+                ),
+                from_email=None,  # uses DEFAULT_FROM_EMAIL from settings
+                recipient_list=[customer_email],
+                fail_silently=True,
+            )
+            return Response({'message': 'Refund accepted.', 'status': order.status})
+
+        if decision == 'reject':
+            order.status = Order.Status.REFUND_REJECTED
+            order.save(update_fields=['status'])
+            send_mail(
+                subject=f'Refund Rejected for Order {order_ref}',
+                message=(
+                    f'Hello,\n\n'
+                    f'Unfortunately, your refund request for order {order_ref} has been REJECTED.\n\n'
+                    f'If you have questions, please contact our support team.\n\n'
+                    f'Thank you,\nInkCloud Team'
+                ),
+                from_email=None,
+                recipient_list=[customer_email],
+                fail_silently=True,
+            )
+            return Response({'message': 'Refund rejected.', 'status': order.status})
+
+        return Response({'error': 'Invalid decision. Use "accept" or "reject".'}, status=status.HTTP_400_BAD_REQUEST)
