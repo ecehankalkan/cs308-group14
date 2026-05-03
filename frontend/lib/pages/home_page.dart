@@ -1,11 +1,11 @@
 import 'dart:convert';
-import 'package:http/http.dart' as http;
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:http/http.dart' as http;
+import 'package:shared_preferences/shared_preferences.dart';
 import '../services/auth_service.dart';
 import '../services/cart_service.dart';
 import '../models/product.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 
 const _dark     = Color(0xFF8D7B68);
 const _medium   = Color(0xFFA4907C);
@@ -13,72 +13,30 @@ const _taupe    = Color(0xFFC8B6A6);
 const _cream    = Color(0xFFF1DEC9);
 const _offWhite = Color(0xFFFAF5EF);
 
-// Base URL
 const String _baseUrl = 'http://127.0.0.1:8000/api';
 
-// TODO: replace with real API call
-const List<Product> _placeholderProducts = [
-  Product(
-    id: '1',
-    name: 'The Midnight Library',
-    description: 'A novel about infinite possibilities and second chances, by Matt Haig.',
-    price: 14.99,
-    warrantyInfo: 'Satisfaction guaranteed or full refund within 30 days.',
-    distributor: 'Penguin Random House',
-    stockQuantity: 42,
-    category: DeweyCategory.literature,
-  ),
-  Product(
-    id: '2',
-    name: 'Atomic Habits',
-    description: 'An easy and proven way to build good habits and break bad ones, by James Clear.',
-    price: 16.99,
-    warrantyInfo: 'Satisfaction guaranteed or full refund within 30 days.',
-    distributor: 'Penguin Random House',
-    stockQuantity: 78,
-    category: DeweyCategory.philosophy,
-  ),
-  Product(
-    id: '3',
-    name: 'Dune',
-    description: 'Frank Herbert\'s epic science fiction saga set on the desert planet Arrakis.',
-    price: 12.99,
-    warrantyInfo: 'Satisfaction guaranteed or full refund within 30 days.',
-    distributor: 'Ace Books',
-    stockQuantity: 55,
-    category: DeweyCategory.pureScience,
-  ),
-  Product(
-    id: '4',
-    name: '1984',
-    description: 'George Orwell\'s haunting vision of a totalitarian future society.',
-    price: 10.99,
-    warrantyInfo: 'Satisfaction guaranteed or full refund within 30 days.',
-    distributor: 'Signet Classic',
-    stockQuantity: 91,
-    category: DeweyCategory.socialSciences,
-  ),
-  Product(
-    id: '5',
-    name: 'The Alchemist',
-    description: 'Paulo Coelho\'s beloved novel about following your dreams and listening to your heart.',
-    price: 11.99,
-    warrantyInfo: 'Satisfaction guaranteed or full refund within 30 days.',
-    distributor: 'HarperCollins',
-    stockQuantity: 63,
-    category: DeweyCategory.literature,
-  ),
-  Product(
-    id: '6',
-    name: 'Sapiens',
-    description: 'A brief history of humankind by Yuval Noah Harari.',
-    price: 17.99,
-    warrantyInfo: 'Satisfaction guaranteed or full refund within 30 days.',
-    distributor: 'Harper Perennial',
-    stockQuantity: 37,
-    category: DeweyCategory.history,
-  ),
-];
+// ─── Open Library cover URL by book title ─────────────────────────────────────
+String _coverUrl(String title) {
+  final encoded = Uri.encodeComponent(title);
+  return 'https://covers.openlibrary.org/b/title/$encoded-M.jpg';
+}
+
+// ─── Category number → DeweyCategory mapping ─────────────────────────────────
+DeweyCategory _categoryFromInt(int? cat) {
+  switch (cat) {
+    case 1:  return DeweyCategory.generalWorks;
+    case 2:  return DeweyCategory.philosophy;
+    case 3:  return DeweyCategory.religion;
+    case 4:  return DeweyCategory.socialSciences;
+    case 5:  return DeweyCategory.language;
+    case 6:  return DeweyCategory.pureScience;
+    case 7:  return DeweyCategory.technology;
+    case 8:  return DeweyCategory.arts;
+    case 9:  return DeweyCategory.literature;
+    case 10: return DeweyCategory.history;
+    default: return DeweyCategory.literature;
+  }
+}
 
 const Map<DeweyCategory, Color> _categoryColors = {
   DeweyCategory.generalWorks:   Color(0xFF5C7A9E),
@@ -147,6 +105,7 @@ Future<void> addToWishlist(BuildContext context, Product product) async {
     }
   }
 }
+
 // ─── Sort options ─────────────────────────────────────────────────────────────
 enum _SortOption { none, priceLowHigh, priceHighLow }
 
@@ -159,20 +118,68 @@ class HomePage extends StatefulWidget {
 }
 
 class _HomePageState extends State<HomePage> {
+  List<Product>  _allProducts  = [];
+  bool           _loadingBooks = true;
+  String?        _fetchError;
+
   String            _searchQuery      = '';
   DeweyCategory?    _selectedCategory;
   double            _minPrice         = 0;
   double            _maxPrice         = 100;
   final double      _absoluteMin      = 0;
-  final double      _absoluteMax      = 100;
   _SortOption       _sortOption       = _SortOption.none;
   final ScrollController _scrollController = ScrollController();
   final GlobalKey        _searchKey        = GlobalKey();
 
   @override
+  void initState() {
+    super.initState();
+    _fetchProducts();
+  }
+
+  @override
   void dispose() {
     _scrollController.dispose();
     super.dispose();
+  }
+
+  Future<void> _fetchProducts() async {
+    setState(() { _loadingBooks = true; _fetchError = null; });
+    try {
+      final response = await http.get(Uri.parse('$_baseUrl/products/'));
+      if (response.statusCode == 200) {
+        final List<dynamic> data = jsonDecode(response.body) as List<dynamic>;
+        setState(() {
+          _allProducts = data.map((e) {
+            final map = e as Map<String, dynamic>;
+            return Product(
+              id:            map['id'].toString(),
+              name:          map['name'] as String? ?? '',
+              description:   map['description'] as String? ?? '',
+              price:         double.tryParse(map['price'].toString()) ?? 0.0,
+              discountedPrice: map['discounted_price'] != null
+                  ? double.tryParse(map['discounted_price'].toString())
+                  : null,
+              warrantyInfo:  map['warranty_status'] == true ? 'Available' : 'None',
+              distributor:   map['distributor_info']?.toString() ?? '',
+              stockQuantity: map['stock_quantity'] as int? ?? 0,
+              category:      _categoryFromInt(map['category'] as int?),
+            );
+          }).toList();
+          if (_allProducts.isNotEmpty) {
+            final maxPrice = _allProducts
+                .map((p) => p.price)
+                .reduce((a, b) => a > b ? a : b);
+            _maxPrice = maxPrice.ceilToDouble();
+          }
+          _loadingBooks = false;
+        });
+      } else {
+        setState(() { _fetchError = 'Failed to load books.'; _loadingBooks = false; });
+      }
+    } catch (e) {
+      setState(() { _fetchError = 'Could not connect to server.'; _loadingBooks = false; });
+    }
   }
 
   void _scrollToSearch() {
@@ -185,7 +192,7 @@ class _HomePageState extends State<HomePage> {
   }
 
   List<Product> get _filteredProducts {
-    List<Product> result = _placeholderProducts.where((p) {
+    List<Product> result = _allProducts.where((p) {
       final q             = _searchQuery.toLowerCase();
       final matchesSearch = q.isEmpty ||
           p.name.toLowerCase().contains(q) ||
@@ -238,7 +245,6 @@ class _HomePageState extends State<HomePage> {
           ),
         ),
         actions: [
-          // ── Wishlist icon ──────────────────────────────────────────────
           IconButton(
             icon: const Icon(Icons.favorite_border, color: _offWhite),
             tooltip: 'Wishlist',
@@ -312,13 +318,18 @@ class _HomePageState extends State<HomePage> {
               minPrice: _minPrice,
               maxPrice: _maxPrice,
               absoluteMin: _absoluteMin,
-              absoluteMax: _absoluteMax,
+              absoluteMax: _maxPrice,
               onPriceChanged: (values) => setState(() {
                 _minPrice = values.start;
                 _maxPrice = values.end;
               }),
             ),
-            _FeaturedBooksSection(products: _filteredProducts),
+            _FeaturedBooksSection(
+              products: _filteredProducts,
+              loading: _loadingBooks,
+              error: _fetchError,
+              onRetry: _fetchProducts,
+            ),
             _CategoriesSection(
               selectedCategory: _selectedCategory,
               onCategoryTapped: _onCategoryTapped,
@@ -511,7 +522,8 @@ class _SearchFilterBar extends StatelessWidget {
                         rangeThumbShape: const RoundRangeSliderThumbShape(enabledThumbRadius: 7),
                       ),
                       child: RangeSlider(
-                        min: absoluteMin, max: absoluteMax,
+                        min: absoluteMin,
+                        max: absoluteMax,
                         values: RangeValues(minPrice, maxPrice),
                         onChanged: onPriceChanged,
                       ),
@@ -530,7 +542,16 @@ class _SearchFilterBar extends StatelessWidget {
 // ─── Featured Books Section ───────────────────────────────────────────────────
 class _FeaturedBooksSection extends StatelessWidget {
   final List<Product> products;
-  const _FeaturedBooksSection({required this.products});
+  final bool          loading;
+  final String?       error;
+  final VoidCallback  onRetry;
+
+  const _FeaturedBooksSection({
+    required this.products,
+    required this.loading,
+    required this.error,
+    required this.onRetry,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -545,7 +566,32 @@ class _FeaturedBooksSection extends StatelessWidget {
           const Text('Handpicked favourites from our collection',
               style: TextStyle(color: _medium, fontSize: 15)),
           const SizedBox(height: 40),
-          if (products.isEmpty)
+
+          if (loading)
+            const Padding(
+              padding: EdgeInsets.symmetric(vertical: 48),
+              child: CircularProgressIndicator(color: _dark),
+            )
+          else if (error != null)
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 48),
+              child: Column(
+                children: [
+                  Icon(Icons.wifi_off_rounded, color: _taupe, size: 64),
+                  const SizedBox(height: 16),
+                  Text(error!,
+                      style: const TextStyle(color: _dark, fontSize: 16, fontWeight: FontWeight.w700)),
+                  const SizedBox(height: 16),
+                  ElevatedButton(
+                    onPressed: onRetry,
+                    style: ElevatedButton.styleFrom(
+                        backgroundColor: _dark, foregroundColor: _offWhite),
+                    child: const Text('Try Again'),
+                  ),
+                ],
+              ),
+            )
+          else if (products.isEmpty)
             Padding(
               padding: const EdgeInsets.symmetric(vertical: 48),
               child: Column(
@@ -571,7 +617,7 @@ class _FeaturedBooksSection extends StatelessWidget {
   }
 }
 
-// ─── Product Card (with wishlist heart button) ────────────────────────────────
+// ─── Product Card with real book cover ───────────────────────────────────────
 class _ProductCard extends StatelessWidget {
   final Product product;
   const _ProductCard({required this.product});
@@ -588,36 +634,61 @@ class _ProductCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Book cover with wishlist heart in top-right corner
-          Container(
-            height: 180,
-            decoration: const BoxDecoration(
-              color: _taupe,
-              borderRadius: BorderRadius.vertical(top: Radius.circular(7)),
-            ),
-            child: Stack(
-              children: [
-                const Center(
-                  child: Icon(Icons.menu_book, color: _offWhite, size: 64),
-                ),
-                Positioned(
-                  top: 8, right: 8,
-                  child: GestureDetector(
-                    onTap: () => addToWishlist(context, product),
-                    child: Container(
-                      padding: const EdgeInsets.all(6),
-                      decoration: BoxDecoration(
-                        color: _offWhite.withValues(alpha: 0.85),
-                        shape: BoxShape.circle,
+          // ── Book cover with real image from Open Library ──────────────
+          Stack(
+            children: [
+              ClipRRect(
+                borderRadius: const BorderRadius.vertical(top: Radius.circular(7)),
+                child: Image.network(
+                  _coverUrl(product.name),
+                    height: 180,
+                    width: double.infinity,
+                    fit: BoxFit.cover,
+                    cacheWidth: 220,
+                    cacheHeight: 180,
+                    filterQuality: FilterQuality.low,
+                  // While loading show a shimmer-like placeholder
+                  loadingBuilder: (context, child, progress) {
+                    if (progress == null) return child;
+                    return Container(
+                      height: 180,
+                      color: _taupe,
+                      child: const Center(
+                        child: CircularProgressIndicator(color: _offWhite, strokeWidth: 2),
                       ),
-                      child: const Icon(Icons.favorite_border,
-                          color: Colors.red, size: 18),
+                    );
+                  },
+                  // If image fails show the book icon fallback
+                  errorBuilder: (context, error, stackTrace) {
+                    return Container(
+                      height: 180,
+                      color: _taupe,
+                      child: const Center(
+                        child: Icon(Icons.menu_book, color: _offWhite, size: 64),
+                      ),
+                    );
+                  },
+                ),
+              ),
+              // Wishlist heart button
+              Positioned(
+                top: 8, right: 8,
+                child: GestureDetector(
+                  onTap: () => addToWishlist(context, product),
+                  child: Container(
+                    padding: const EdgeInsets.all(6),
+                    decoration: BoxDecoration(
+                      color: _offWhite.withValues(alpha: 0.85),
+                      shape: BoxShape.circle,
                     ),
+                    child: const Icon(Icons.favorite_border,
+                        color: Colors.red, size: 18),
                   ),
                 ),
-              ],
-            ),
+              ),
+            ],
           ),
+
           Padding(
             padding: const EdgeInsets.all(14),
             child: Column(
