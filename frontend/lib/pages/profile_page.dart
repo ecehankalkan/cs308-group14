@@ -1004,6 +1004,8 @@ class _OrderCardState extends State<_OrderCard> {
                       'Delivery Address',
                       order.deliveryAddress.isEmpty ? '—' : order.deliveryAddress,
                     ),
+                    const SizedBox(height: 16),
+                    _OrderTracker(status: order.status),
                     const SizedBox(height: 12),
                     const Text(
                       'Items',
@@ -1514,6 +1516,90 @@ class _ExpiryDateFormatter extends TextInputFormatter {
     return newValue.copyWith(
       text: '${text.substring(0, 2)}/${text.substring(2)}',
       selection: TextSelection.collapsed(offset: text.length + 1),
+    );
+  }
+}
+
+class _OrderTracker extends StatelessWidget {
+  final String status;
+  const _OrderTracker({required this.status});
+
+  int get _currentStep {
+    switch (status) {
+      case 'processing': return 0;
+      case 'in-transit': return 1;
+      case 'delivered': return 2;
+      default: return -1;
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final step = _currentStep;
+    if (step < 0) return const SizedBox();
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 8),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'Order Status Tracker',
+            style: TextStyle(color: _dark, fontSize: 13, fontWeight: FontWeight.w700),
+          ),
+          const SizedBox(height: 16),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(child: _buildStep('Processing', Icons.inventory_2_outlined, step >= 0, true, false, step >= 1)),
+              Expanded(child: _buildStep('In Transit', Icons.local_shipping_outlined, step >= 1, false, false, step >= 2)),
+              Expanded(child: _buildStep('Delivered', Icons.check_circle_outline, step >= 2, false, true, false)),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildStep(String label, IconData icon, bool active, bool isFirst, bool isLast, bool lineActive) {
+    final color = active ? _dark : _taupe;
+    return Column(
+      children: [
+        Row(
+          children: [
+            Expanded(
+              child: Container(
+                height: 2,
+                color: isFirst ? Colors.transparent : color,
+              ),
+            ),
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: active ? _cream : _offWhite,
+                shape: BoxShape.circle,
+                border: Border.all(color: color, width: active ? 2 : 1),
+              ),
+              child: Icon(icon, color: color, size: 20),
+            ),
+            Expanded(
+              child: Container(
+                height: 2,
+                color: isLast ? Colors.transparent : (lineActive ? _dark : _taupe),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 8),
+        Text(
+          label,
+          style: TextStyle(
+            color: color,
+            fontSize: 11,
+            fontWeight: active ? FontWeight.w700 : FontWeight.w500,
+          ),
+        ),
+      ],
     );
   }
 }
