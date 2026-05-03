@@ -43,6 +43,10 @@ urlpatterns = [
     path('payment-cards/', views.PaymentCardListView.as_view(), name='payment_card_list'),
     path('payment-cards/<int:pk>/', views.PaymentCardDetailView.as_view(), name='payment_card_detail'),
 
+    # Wishlist (Authenticated Only)
+    path('wishlist/',                  views.WishlistView.as_view(),     name='wishlist'),
+    path('wishlist/<int:product_id>/', views.WishlistItemView.as_view(), name='wishlist_item'),
+
     # Testing Endpoint for Invoices & Emails (SCRUM 54-56)
     path('test-invoice/', views.test_invoice_email, name='test_invoice'),
 ]

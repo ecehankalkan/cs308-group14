@@ -248,3 +248,18 @@ class ProductReview(models.Model):
 
     def __str__(self):
         return f'Review by {self.customer.email} on {self.product.name}'
+
+# ---------------------------------------------------------------------------
+# Wishlist
+# ---------------------------------------------------------------------------
+
+class Wishlist(models.Model):
+    customer = models.ForeignKey(Customer, on_delete=models.CASCADE, related_name='wishlist_items')
+    product  = models.ForeignKey(Product, on_delete=models.CASCADE, related_name='wishlisted_by')
+
+    class Meta:
+        unique_together = ('customer', 'product')
+        indexes = [models.Index(fields=['customer'])]
+
+    def __str__(self):
+        return f'{self.customer} ♥ {self.product.name}'

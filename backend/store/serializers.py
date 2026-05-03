@@ -1,6 +1,6 @@
 from rest_framework import serializers
 from .models import Customer, Product, Cart, Order, OrderItem, DeliveryAddress, PaymentCard, ProductReview
-
+from .models import Customer, Product, Cart, Order, OrderItem, DeliveryAddress, PaymentCard, ProductReview, Wishlist
 
 class RegisterSerializer(serializers.ModelSerializer):
     password = serializers.CharField(write_only=True, min_length=8)
@@ -102,3 +102,10 @@ class ProductReviewSerializer(serializers.ModelSerializer):
         model = ProductReview
         fields = ['id', 'product', 'customer', 'customer_name', 'customer_email', 'rating', 'comment', 'status', 'created_at', 'updated_at']
         read_only_fields = ['id', 'customer', 'status', 'created_at', 'updated_at']
+
+class WishlistSerializer(serializers.ModelSerializer):
+    product = ProductSerializer(read_only=True)
+
+    class Meta:
+        model  = Wishlist
+        fields = ['id', 'product']
