@@ -9,6 +9,11 @@ const _taupe = Color(0xFFC8B6A6);
 const _cream = Color(0xFFF1DEC9);
 const _offWhite = Color(0xFFFAF5EF);
 
+// ─── Open Library cover URL by book title ─────────────────────────────────────
+String _coverUrl(String title) {
+  final encoded = Uri.encodeComponent(title);
+  return 'https://covers.openlibrary.org/b/title/$encoded-M.jpg';
+}
 class CartPage extends StatefulWidget {
   const CartPage({super.key});
 
@@ -268,12 +273,18 @@ class _CartPageState extends State<CartPage> {
                         children: [
                           Container(
                             width: 50,
-                            height: 50,
+                            height: 70,
                             decoration: BoxDecoration(
                               color: _taupe.withOpacity(0.4),
-                              borderRadius: BorderRadius.circular(8),
+                              borderRadius: BorderRadius.circular(6),
                             ),
-                            child: const Icon(Icons.inventory_2_outlined, color: _dark),
+                            clipBehavior: Clip.hardEdge,
+                            child: Image.network(
+                              _coverUrl(product.name),
+                              fit: BoxFit.cover,
+                              errorBuilder: (context, error, stackTrace) =>
+                                  const Icon(Icons.menu_book, color: _dark),
+                            ),
                           ),
                           const SizedBox(width: 12),
                           Expanded(

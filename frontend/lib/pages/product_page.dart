@@ -15,6 +15,11 @@ const _taupe = Color(0xFFC8B6A6);
 const _cream = Color(0xFFF1DEC9);
 const _offWhite = Color(0xFFFAF5EF);
 
+// ─── Open Library cover URL by book title ─────────────────────────────────────
+String _coverUrl(String title) {
+  final encoded = Uri.encodeComponent(title);
+  return 'https://covers.openlibrary.org/b/title/$encoded-M.jpg';
+}
 class ProductPage extends StatefulWidget {
   final Product product;
 
@@ -327,15 +332,21 @@ class _ProductPageState extends State<ProductPage> {
                     minWidth: isWide ? 360 : constraints.maxWidth,
                   ),
                   decoration: BoxDecoration(
-                    color: _cream,
+                    color: _taupe.withOpacity(0.4),
                     borderRadius: BorderRadius.circular(14),
                     border: Border.all(color: _taupe),
                   ),
-                  child: const Center(
-                    child: Icon(
-                      Icons.menu_book_rounded,
-                      size: 110,
-                      color: _medium,
+                  clipBehavior: Clip.hardEdge,
+                  child: Image.network(
+                    _coverUrl(product.name),
+                    fit: BoxFit.cover,
+                    errorBuilder: (context, error, stackTrace) =>
+                        const Center(
+                      child: Icon(
+                        Icons.menu_book_rounded,
+                        size: 110,
+                        color: _medium,
+                      ),
                     ),
                   ),
                 );

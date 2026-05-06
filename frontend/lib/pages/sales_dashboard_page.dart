@@ -54,7 +54,7 @@ class _SalesDashboardPageState extends State<SalesDashboardPage>
   }
 
   void _handleLogout(BuildContext context) {
-    Navigator.pushNamedAndRemoveUntil(context, '/login', (route) => false);
+    Navigator.pushNamedAndRemoveUntil(context, '/', (route) => false);
   }
 
   List<Product> get _filteredProducts {

@@ -6,6 +6,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../services/auth_service.dart';
 import '../services/cart_service.dart';
 import '../models/product.dart';
+import 'product_page.dart';
 
 const _dark     = Color(0xFF8D7B68);
 const _medium   = Color(0xFFA4907C);
@@ -565,12 +566,7 @@ class _FeaturedBooksSection extends StatelessWidget {
       padding: const EdgeInsets.symmetric(vertical: 64, horizontal: 48),
       child: Column(
         children: [
-          const Text('Featured Books',
-              style: TextStyle(color: _dark, fontSize: 32, fontWeight: FontWeight.w700, letterSpacing: 1)),
-          const SizedBox(height: 8),
-          const Text('Handpicked favourites from our collection',
-              style: TextStyle(color: _medium, fontSize: 15)),
-          const SizedBox(height: 40),
+
 
           if (loading)
             const Padding(
@@ -629,8 +625,17 @@ class _ProductCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      width: 220,
+    return GestureDetector(
+      onTap: () {
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => ProductPage(product: product),
+          ),
+        );
+      },
+      child: Container(
+        width: 220,
       decoration: BoxDecoration(
         color: _offWhite,
         borderRadius: BorderRadius.circular(8),
@@ -772,7 +777,7 @@ class _ProductCard extends StatelessWidget {
           ),
         ],
       ),
-    );
+    ));
   }
 }
 
