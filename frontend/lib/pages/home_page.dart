@@ -52,60 +52,6 @@ const Map<DeweyCategory, Color> _categoryColors = {
   DeweyCategory.history:        Color(0xFF7A6E4A),
 };
 
-// ─── Wishlist API helper ──────────────────────────────────────────────────────
-Future<void> addToWishlist(BuildContext context, Product product) async {
-  final prefs = await SharedPreferences.getInstance();
-  final token = prefs.getString('access_token');
-  if (token == null || token.isEmpty) {
-    if (context.mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-        content: const Text('Please log in to add items to your wishlist.'),
-        backgroundColor: _dark,
-        action: SnackBarAction(
-          label: 'Login',
-          textColor: _cream,
-          onPressed: () => Navigator.pushNamed(context, '/login'),
-        ),
-      ));
-    }
-    return;
-  }
-  try {
-    final response = await http.post(
-      Uri.parse('$_baseUrl/wishlist/'),
-      headers: {
-        'Authorization': 'Bearer $token',
-        'Content-Type': 'application/json',
-      },
-      body: jsonEncode({'product_id': int.parse(product.id)}),
-    );
-    if (context.mounted) {
-      if (response.statusCode == 201) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: Text('${product.name} added to wishlist!'),
-          backgroundColor: Colors.pink.shade400,
-        ));
-      } else if (response.statusCode == 200) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: Text('${product.name} is already in your wishlist.'),
-          backgroundColor: _medium,
-        ));
-      } else {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-          content: Text('Failed to add to wishlist.'),
-          backgroundColor: Colors.red,
-        ));
-      }
-    }
-  } catch (e) {
-    if (context.mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-        content: Text('Could not connect to server.'),
-        backgroundColor: Colors.red,
-      ));
-    }
-  }
-}
 
 // ─── Sort options ─────────────────────────────────────────────────────────────
 enum _SortOption { none, priceLowHigh, priceHighLow }
@@ -122,6 +68,7 @@ class _HomePageState extends State<HomePage> {
   List<Product>  _allProducts  = [];
   bool           _loadingBooks = true;
   String?        _fetchError;
+  Set<int>       _wishlistProductIds = {};
 
   String            _searchQuery      = '';
   DeweyCategory?    _selectedCategory;
@@ -136,12 +83,84 @@ class _HomePageState extends State<HomePage> {
   void initState() {
     super.initState();
     _fetchProducts();
+    _fetchWishlist();
   }
 
   @override
   void dispose() {
     _scrollController.dispose();
     super.dispose();
+  }
+
+  Future<void> _fetchWishlist() async {
+    final prefs = await SharedPreferences.getInstance();
+    final token = prefs.getString('access_token');
+    if (token == null || token.isEmpty) return;
+    try {
+      final response = await http.get(
+        Uri.parse('$_baseUrl/wishlist/'),
+        headers: {'Authorization': 'Bearer $token'},
+      );
+      if (response.statusCode == 200) {
+        final List<dynamic> data = jsonDecode(response.body);
+        setState(() {
+          _wishlistProductIds = data
+              .map<int>((item) => item['product']['id'] as int)
+              .toSet();
+        });
+      }
+    } catch (_) {}
+  }
+
+  Future<void> _toggleWishlist(BuildContext context, Product product) async {
+    final prefs = await SharedPreferences.getInstance();
+    final token = prefs.getString('access_token');
+    if (token == null || token.isEmpty) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: const Text('Please log in to add items to your wishlist.'),
+          backgroundColor: _dark,
+          action: SnackBarAction(
+            label: 'Login',
+            textColor: _cream,
+            onPressed: () => Navigator.pushNamed(context, '/login'),
+          ),
+        ));
+      }
+      return;
+    }
+    final productId = int.parse(product.id);
+    final inWishlist = _wishlistProductIds.contains(productId);
+    try {
+      if (inWishlist) {
+        final response = await http.delete(
+          Uri.parse('$_baseUrl/wishlist/$productId/'),
+          headers: {'Authorization': 'Bearer $token'},
+        );
+        if (response.statusCode == 204) {
+          setState(() => _wishlistProductIds.remove(productId));
+        }
+      } else {
+        final response = await http.post(
+          Uri.parse('$_baseUrl/wishlist/'),
+          headers: {
+            'Authorization': 'Bearer $token',
+            'Content-Type': 'application/json',
+          },
+          body: jsonEncode({'product_id': productId}),
+        );
+        if (response.statusCode == 201) {
+          setState(() => _wishlistProductIds.add(productId));
+        }
+      }
+    } catch (_) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+          content: Text('Could not connect to server.'),
+          backgroundColor: Colors.red,
+        ));
+      }
+    }
   }
 
   Future<void> _fetchProducts() async {
@@ -249,7 +268,7 @@ class _HomePageState extends State<HomePage> {
           IconButton(
             icon: const Icon(Icons.favorite_border, color: _offWhite),
             tooltip: 'Wishlist',
-            onPressed: () => Navigator.pushNamed(context, '/wishlist'),
+            onPressed: () => Navigator.pushNamed(context, '/wishlist').then((_) => _fetchWishlist()),
           ),
           IconButton(
             icon: const Icon(Icons.shopping_cart_outlined, color: _offWhite),
@@ -335,6 +354,9 @@ class _HomePageState extends State<HomePage> {
               loading: _loadingBooks,
               error: _fetchError,
               onRetry: _fetchProducts,
+              wishlistIds: _wishlistProductIds,
+              onWishlistToggle: (p) => _toggleWishlist(context, p),
+              onNavigatedBack: _fetchWishlist,
             ),
             _CategoriesSection(
               selectedCategory: _selectedCategory,
@@ -547,16 +569,22 @@ class _SearchFilterBar extends StatelessWidget {
 
 // ─── Featured Books Section ───────────────────────────────────────────────────
 class _FeaturedBooksSection extends StatelessWidget {
-  final List<Product> products;
-  final bool          loading;
-  final String?       error;
-  final VoidCallback  onRetry;
+  final List<Product>          products;
+  final bool                   loading;
+  final String?                error;
+  final VoidCallback           onRetry;
+  final Set<int>               wishlistIds;
+  final void Function(Product) onWishlistToggle;
+  final VoidCallback           onNavigatedBack;
 
   const _FeaturedBooksSection({
     required this.products,
     required this.loading,
     required this.error,
     required this.onRetry,
+    required this.wishlistIds,
+    required this.onWishlistToggle,
+    required this.onNavigatedBack,
   });
 
   @override
@@ -610,7 +638,12 @@ class _FeaturedBooksSection extends StatelessWidget {
           else
             Wrap(
               spacing: 24, runSpacing: 24, alignment: WrapAlignment.center,
-              children: products.map((p) => _ProductCard(product: p)).toList(),
+              children: products.map((p) => _ProductCard(
+                product: p,
+                isInWishlist: wishlistIds.contains(int.parse(p.id)),
+                onWishlistToggle: () => onWishlistToggle(p),
+                onNavigatedBack: onNavigatedBack,
+              )).toList(),
             ),
         ],
       ),
@@ -620,8 +653,17 @@ class _FeaturedBooksSection extends StatelessWidget {
 
 // ─── Product Card with real book cover ───────────────────────────────────────
 class _ProductCard extends StatelessWidget {
-  final Product product;
-  const _ProductCard({required this.product});
+  final Product      product;
+  final bool         isInWishlist;
+  final VoidCallback onWishlistToggle;
+  final VoidCallback onNavigatedBack;
+
+  const _ProductCard({
+    required this.product,
+    required this.isInWishlist,
+    required this.onWishlistToggle,
+    required this.onNavigatedBack,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -632,7 +674,7 @@ class _ProductCard extends StatelessWidget {
           MaterialPageRoute(
             builder: (context) => ProductPage(product: product),
           ),
-        );
+        ).then((_) => onNavigatedBack());
       },
       child: Container(
         width: 220,
@@ -684,15 +726,18 @@ class _ProductCard extends StatelessWidget {
               Positioned(
                 top: 8, right: 8,
                 child: GestureDetector(
-                  onTap: () => addToWishlist(context, product),
+                  onTap: onWishlistToggle,
                   child: Container(
                     padding: const EdgeInsets.all(6),
                     decoration: BoxDecoration(
                       color: _offWhite.withValues(alpha: 0.85),
                       shape: BoxShape.circle,
                     ),
-                    child: const Icon(Icons.favorite_border,
-                        color: Colors.red, size: 18),
+                    child: Icon(
+                      isInWishlist ? Icons.favorite : Icons.favorite_border,
+                      color: Colors.red,
+                      size: 18,
+                    ),
                   ),
                 ),
               ),

@@ -178,6 +178,18 @@ class ProductReviewListCreateView(generics.ListCreateAPIView):
         return [permissions.AllowAny()]
 
 
+class MyProductReviewView(APIView):
+    """GET /api/products/<product_id>/my-review/ — returns the logged-in user's own review (any status)"""
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request, product_id):
+        try:
+            review = ProductReview.objects.get(product_id=product_id, customer=request.user)
+            return Response(ProductReviewSerializer(review).data)
+        except ProductReview.DoesNotExist:
+            return Response(None, status=status.HTTP_204_NO_CONTENT)
+
+
 class ProductReviewDetailView(generics.RetrieveUpdateDestroyAPIView):
     """
     GET    /api/reviews/<id>/ — public

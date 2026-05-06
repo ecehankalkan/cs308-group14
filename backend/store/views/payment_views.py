@@ -79,73 +79,67 @@ def checkout_view(request):
     # Create order and update stock in a transaction
     try:
         with transaction.atomic():
-            # Create order
             order = Order.objects.create(
                 customer=customer,
                 total_price=total_price,
                 delivery_address=shipping_address,
                 status=Order.Status.PROCESSING
             )
-            
-            # Create order items and reduce stock
+
             for item_data in order_items_data:
                 product = item_data['product']
-                
                 OrderItem.objects.create(
                     order=order,
                     product=product,
                     quantity=item_data['quantity'],
                     price_at_purchase=item_data['price']
                 )
-                
-                # Reduce stock
                 product.stock_quantity -= item_data['quantity']
                 product.save()
-            
-            # Clear cart
+
             cart_items.delete()
-            
-            # Generate invoice
-            invoice_data = {
-                "id": f"ORD-{order.id}",
-                "date": order.created_at.strftime("%B %d, %Y %I:%M %p"),
-                "total_price": float(total_price),
-                "address": shipping_address,
-                "items": [
-                    {
-                        "product_name": item['product'].name,
-                        "price": float(item['price']),
-                        "quantity": item['quantity']
-                    }
-                    for item in order_items_data
-                ]
-            }
-            
-            pdf_bytes = generate_invoice_pdf(invoice_data)
-            
-            # Send email with invoice
-            email = EmailMessage(
-                subject=f"Your Order Confirmation - Order #{order.id}",
-                body=f"Dear {customer.name},\n\nThank you for your purchase! Your order has been confirmed.\n\nOrder ID: ORD-{order.id}\nTotal Amount: ${total_price}\n\nYour invoice is attached. We'll notify you when your order ships!\n\nBest regards,\ninkcloud Team",
-                from_email="orders@inkcloud.com",
-                to=[customer.email],
-            )
-            email.attach(f"invoice_ORD-{order.id}.pdf", pdf_bytes, "application/pdf")
-            email.send(fail_silently=False)
-            
-            return Response({
-                'success': True,
-                'order_id': order.id,
-                'order_number': f'ORD-{order.id}',
-                'total_amount': float(total_price),
-                'items_count': len(order_items_data),
-                'delivery_address': shipping_address,
-                'message': 'Payment successful! Invoice sent to your email.',
-                'created_at': order.created_at.isoformat()
-            }, status=status.HTTP_201_CREATED)
-            
+
     except Exception as e:
         return Response(
             {'error': f'Checkout failed: {str(e)}'},
             status=status.HTTP_500_INTERNAL_SERVER_ERROR
         )
+
+    # Send invoice email outside the transaction so a mail failure never rolls back the order
+    try:
+        invoice_data = {
+            "id": f"ORD-{order.id}",
+            "date": order.created_at.strftime("%B %d, %Y %I:%M %p"),
+            "total_price": float(total_price),
+            "address": shipping_address,
+            "items": [
+                {
+                    "product_name": item['product'].name,
+                    "price": float(item['price']),
+                    "quantity": item['quantity']
+                }
+                for item in order_items_data
+            ]
+        }
+        pdf_bytes = generate_invoice_pdf(invoice_data)
+        email = EmailMessage(
+            subject=f"Your Order Confirmation - Order #{order.id}",
+            body=f"Dear {customer.name},\n\nThank you for your purchase! Your order has been confirmed.\n\nOrder ID: ORD-{order.id}\nTotal Amount: ${total_price}\n\nYour invoice is attached. We'll notify you when your order ships!\n\nBest regards,\ninkcloud Team",
+            from_email="orders@inkcloud.com",
+            to=[customer.email],
+        )
+        email.attach(f"invoice_ORD-{order.id}.pdf", pdf_bytes, "application/pdf")
+        email.send(fail_silently=True)
+    except Exception:
+        pass  # email failure must not affect the order response
+
+    return Response({
+        'success': True,
+        'order_id': order.id,
+        'order_number': f'ORD-{order.id}',
+        'total_amount': float(total_price),
+        'items_count': len(order_items_data),
+        'delivery_address': shipping_address,
+        'message': 'Payment successful! Invoice sent to your email.',
+        'created_at': order.created_at.isoformat()
+    }, status=status.HTTP_201_CREATED)

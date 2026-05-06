@@ -1,18 +1,39 @@
 import 'dart:convert';
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:http/http.dart' as http;
+import 'package:shared_preferences/shared_preferences.dart';
 import '../models/review.dart';
 
 class ReviewService {
   final String baseUrl = 'http://localhost:8000/api';
   final http.Client _httpClient = http.Client();
 
+  Future<String?> _getToken() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getString('access_token');
+  }
+
+  Future<ProductReview?> fetchMyReview(int productId) async {
+    try {
+      final token = await _getToken();
+      if (token == null || token.isEmpty) return null;
+      final response = await _httpClient.get(
+        Uri.parse('$baseUrl/products/$productId/my-review/'),
+        headers: {'Authorization': 'Bearer $token'},
+      );
+      if (response.statusCode == 200) {
+        return ProductReview.fromJson(jsonDecode(response.body));
+      }
+      return null;
+    } catch (_) {
+      return null;
+    }
+  }
+
   Future<List<ProductReview>> fetchProductReviews(int productId) async {
     try {
       final response = await _httpClient.get(
         Uri.parse('$baseUrl/products/$productId/reviews/'),
       );
-
       if (response.statusCode == 200) {
         final List<dynamic> jsonData = jsonDecode(response.body);
         return jsonData.map((json) => ProductReview.fromJson(json)).toList();
@@ -30,17 +51,14 @@ class ReviewService {
     String? comment,
   }) async {
     try {
-      final user = FirebaseAuth.instance.currentUser;
-      if (user == null) {
+      final token = await _getToken();
+      if (token == null || token.isEmpty) {
         throw Exception('User not authenticated');
       }
 
-      // At least one of rating or comment must be provided
       if ((rating == null || rating == 0) && (comment == null || comment.isEmpty)) {
         throw Exception('Please provide either a rating or a comment');
       }
-
-      final idToken = await user.getIdToken();
 
       final requestBody = {
         'product': productId,
@@ -52,7 +70,7 @@ class ReviewService {
         Uri.parse('$baseUrl/products/$productId/reviews/'),
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': 'Bearer $idToken',
+          'Authorization': 'Bearer $token',
         },
         body: jsonEncode(requestBody),
       );
@@ -75,16 +93,14 @@ class ReviewService {
     String? comment,
   }) async {
     try {
-      final user = FirebaseAuth.instance.currentUser;
-      if (user == null) {
+      final token = await _getToken();
+      if (token == null || token.isEmpty) {
         throw Exception('User not authenticated');
       }
 
       if ((rating == null || rating == 0) && (comment == null || comment.isEmpty)) {
         throw Exception('Please provide either a rating or a comment');
       }
-
-      final idToken = await user.getIdToken();
 
       final requestBody = {
         'rating': rating != null && rating > 0 ? rating : null,
@@ -95,7 +111,7 @@ class ReviewService {
         Uri.parse('$baseUrl/reviews/$reviewId/'),
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': 'Bearer $idToken',
+          'Authorization': 'Bearer $token',
         },
         body: jsonEncode(requestBody),
       );
@@ -112,18 +128,14 @@ class ReviewService {
 
   Future<void> deleteReview(int reviewId) async {
     try {
-      final user = FirebaseAuth.instance.currentUser;
-      if (user == null) {
+      final token = await _getToken();
+      if (token == null || token.isEmpty) {
         throw Exception('User not authenticated');
       }
 
-      final idToken = await user.getIdToken();
-
       final response = await _httpClient.delete(
         Uri.parse('$baseUrl/reviews/$reviewId/'),
-        headers: {
-          'Authorization': 'Bearer $idToken',
-        },
+        headers: {'Authorization': 'Bearer $token'},
       );
 
       if (response.statusCode != 204) {

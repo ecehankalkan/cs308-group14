@@ -1,13 +1,17 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:http/http.dart' as http;
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../models/product.dart';
 import '../models/review.dart';
 import '../services/auth_service.dart';
 import '../services/cart_service.dart';
 import '../services/product_service.dart';
-import '../services/wishlist_service.dart';
 import '../services/review_service.dart';
+
+const String _baseUrl = 'http://127.0.0.1:8000/api';
 
 const _dark = Color(0xFF8D7B68);
 const _medium = Color(0xFFA4907C);
@@ -32,7 +36,6 @@ class ProductPage extends StatefulWidget {
 class _ProductPageState extends State<ProductPage> {
   final CartService _cartService = CartService();
   final ProductService _productService = ProductService();
-  final WishlistService _wishlistService = WishlistService();
   final ReviewService _reviewService = ReviewService();
   final TextEditingController _quantityController = TextEditingController(
     text: '1',
@@ -45,6 +48,13 @@ class _ProductPageState extends State<ProductPage> {
   List<ProductReview> _reviews = [];
   bool _isLoadingReviews = true;
   double _avgRating = 0.0;
+  int _ratingCount = 0;
+
+  ProductReview? _myReview;
+  bool _isLoadingMyReview = true;
+  int _formRating = 0;
+  final TextEditingController _commentController = TextEditingController();
+  bool _isSubmitting = false;
 
   double _normalizeRating(double? value) {
     if (value == null || value.isNaN || value.isInfinite) return 0.0;
@@ -55,14 +65,17 @@ class _ProductPageState extends State<ProductPage> {
   @override
   void initState() {
     super.initState();
-    _inWishlist = _wishlistService.contains(widget.product.id);
+    _inWishlist = false;
+    _loadWishlistStatus();
     _loadProductFromBackend();
     _loadReviews();
+    _loadMyReview();
   }
 
   @override
   void dispose() {
     _quantityController.dispose();
+    _commentController.dispose();
     super.dispose();
   }
 
@@ -77,6 +90,10 @@ class _ProductPageState extends State<ProductPage> {
     setState(() {
       _backendProduct = fetchedProduct ?? widget.product;
       _isLoadingProduct = false;
+      if (_backendProduct!.averageRating != null) {
+        _avgRating = _normalizeRating(_backendProduct!.averageRating!);
+        _ratingCount = _backendProduct!.ratingCount;
+      }
     });
   }
 
@@ -87,15 +104,6 @@ class _ProductPageState extends State<ProductPage> {
       if (mounted) {
         setState(() {
           _reviews = reviews;
-          // compute average rating rounded to nearest 0.5
-          final ratings = _reviews.where((r) => r.rating != null).map((r) => r.rating!.toDouble()).toList();
-          if (ratings.isEmpty) {
-            _avgRating = 0.0;
-          } else {
-            final sum = ratings.reduce((a, b) => a + b);
-            final avg = sum / ratings.length;
-            _avgRating = _normalizeRating(avg);
-          }
           _isLoadingReviews = false;
         });
       }
@@ -113,6 +121,62 @@ class _ProductPageState extends State<ProductPage> {
   }
 
   
+
+  Future<void> _loadMyReview() async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) {
+      setState(() => _isLoadingMyReview = false);
+      return;
+    }
+    final productId = int.tryParse(widget.product.id) ?? 0;
+    final review = await _reviewService.fetchMyReview(productId);
+    if (mounted) {
+      setState(() {
+        _myReview = review;
+        _isLoadingMyReview = false;
+      });
+    }
+  }
+
+  Future<void> _submitReview() async {
+    final comment = _commentController.text.trim();
+    if (_formRating == 0 && comment.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+        content: Text('Please provide a rating or a comment.'),
+        backgroundColor: Colors.red,
+      ));
+      return;
+    }
+    setState(() => _isSubmitting = true);
+    try {
+      final productId = int.tryParse(widget.product.id) ?? 0;
+      final review = await _reviewService.createReview(
+        productId: productId,
+        rating: _formRating > 0 ? _formRating : null,
+        comment: comment.isNotEmpty ? comment : null,
+      );
+      if (mounted) {
+        setState(() {
+          _myReview = review;
+          _isSubmitting = false;
+          _formRating = 0;
+          _commentController.clear();
+        });
+        _loadProductFromBackend();
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() => _isSubmitting = false);
+        final message = e.toString().contains('purchased')
+            ? 'You can only review products you have purchased and received.'
+            : 'Failed to submit review. Please try again.';
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text(message),
+          backgroundColor: Colors.red,
+        ));
+      }
+    }
+  }
 
   void _changeQuantity(int newQuantity) {
     final maxQuantity = _displayProduct.stockQuantity;
@@ -155,36 +219,73 @@ class _ProductPageState extends State<ProductPage> {
     }
   }
 
-  void _toggleWishlist() {
+  Future<void> _loadWishlistStatus() async {
+    final prefs = await SharedPreferences.getInstance();
+    final token = prefs.getString('access_token');
+    if (token == null || token.isEmpty) return;
+    try {
+      final response = await http.get(
+        Uri.parse('$_baseUrl/wishlist/'),
+        headers: {'Authorization': 'Bearer $token'},
+      );
+      if (response.statusCode == 200) {
+        final List<dynamic> data = jsonDecode(response.body);
+        final ids = data.map<int>((item) => item['product']['id'] as int).toSet();
+        if (mounted) setState(() => _inWishlist = ids.contains(int.parse(widget.product.id)));
+      }
+    } catch (_) {}
+  }
+
+  Future<void> _toggleWishlist() async {
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) {
       _showAuthDialog();
       return;
     }
-
-    setState(() {
+    final prefs = await SharedPreferences.getInstance();
+    final token = prefs.getString('access_token');
+    if (token == null || token.isEmpty) {
+      _showAuthDialog();
+      return;
+    }
+    final productId = int.parse(_displayProduct.id);
+    try {
       if (_inWishlist) {
-        _wishlistService.remove(_displayProduct.id);
-        _inWishlist = false;
-        ScaffoldMessenger.of(context).hideCurrentSnackBar();
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
+        final response = await http.delete(
+          Uri.parse('$_baseUrl/wishlist/$productId/'),
+          headers: {'Authorization': 'Bearer $token'},
+        );
+        if (response.statusCode == 204 && mounted) {
+          setState(() => _inWishlist = false);
+          ScaffoldMessenger.of(context).hideCurrentSnackBar();
+          ScaffoldMessenger.of(context).showSnackBar(SnackBar(
             content: Text('${_displayProduct.name} removed from wishlist'),
             duration: const Duration(seconds: 2),
-          ),
-        );
+          ));
+        }
       } else {
-        _wishlistService.add(_displayProduct);
-        _inWishlist = true;
-        ScaffoldMessenger.of(context).hideCurrentSnackBar();
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
+        final response = await http.post(
+          Uri.parse('$_baseUrl/wishlist/'),
+          headers: {'Authorization': 'Bearer $token', 'Content-Type': 'application/json'},
+          body: jsonEncode({'product_id': productId}),
+        );
+        if (response.statusCode == 201 && mounted) {
+          setState(() => _inWishlist = true);
+          ScaffoldMessenger.of(context).hideCurrentSnackBar();
+          ScaffoldMessenger.of(context).showSnackBar(SnackBar(
             content: Text('${_displayProduct.name} added to wishlist!'),
             duration: const Duration(seconds: 2),
-          ),
-        );
+          ));
+        }
       }
-    });
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+          content: Text('Could not connect to server.'),
+          backgroundColor: Colors.red,
+        ));
+      }
+    }
   }
 
   void _showAuthDialog() {
@@ -617,7 +718,7 @@ class _ProductPageState extends State<ProductPage> {
         ),
         const SizedBox(width: 6),
         Text(
-          avg.toStringAsFixed(1),
+          '${avg.toStringAsFixed(1)} ($_ratingCount)',
           style: const TextStyle(color: _dark, fontSize: 12, fontWeight: FontWeight.w700),
         ),
       ],
@@ -630,16 +731,168 @@ class _ProductPageState extends State<ProductPage> {
       children: [
         const Text(
           'Comments & Ratings',
-          style: TextStyle(
-            color: _dark,
-            fontSize: 22,
-            fontWeight: FontWeight.w800,
-          ),
+          style: TextStyle(color: _dark, fontSize: 22, fontWeight: FontWeight.w800),
         ),
         const SizedBox(height: 24),
-        const SizedBox(height: 8),
+        _buildReviewFormOrStatus(),
+        const SizedBox(height: 24),
         _buildReviewsList(),
       ],
+    );
+  }
+
+  Widget _buildReviewFormOrStatus() {
+    final user = FirebaseAuth.instance.currentUser;
+
+    if (user == null) {
+      return Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: _cream,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: _taupe),
+        ),
+        child: Row(
+          children: [
+            const Icon(Icons.info_outline, color: _medium, size: 18),
+            const SizedBox(width: 10),
+            const Text('Log in to leave a rating or comment.',
+                style: TextStyle(color: _medium, fontSize: 13)),
+          ],
+        ),
+      );
+    }
+
+    if (_isLoadingMyReview) {
+      return const SizedBox(
+        height: 40,
+        child: Center(child: CircularProgressIndicator(color: _dark, strokeWidth: 2)),
+      );
+    }
+
+    if (_myReview != null) {
+      final status = _myReview!.status;
+      if (status == 'pending') {
+        return _buildStatusBanner(
+          icon: Icons.hourglass_top_rounded,
+          color: Colors.orange,
+          message: 'Your review is awaiting approval.',
+        );
+      } else if (status == 'rejected') {
+        return _buildStatusBanner(
+          icon: Icons.cancel_outlined,
+          color: Colors.red,
+          message: 'Your review was not approved.',
+        );
+      }
+      return const SizedBox.shrink();
+    }
+
+    // No review yet — show the form
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: _cream,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: _taupe),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text('Leave a Review',
+              style: TextStyle(color: _dark, fontSize: 16, fontWeight: FontWeight.w700)),
+          const SizedBox(height: 16),
+          Row(
+            children: [
+              const Text('Rating (optional):',
+                  style: TextStyle(color: _medium, fontSize: 13)),
+              const SizedBox(width: 12),
+              Row(
+                children: List.generate(5, (i) {
+                  return GestureDetector(
+                    onTap: () => setState(() => _formRating = i + 1 == _formRating ? 0 : i + 1),
+                    child: Icon(
+                      i < _formRating ? Icons.star : Icons.star_border,
+                      color: _dark,
+                      size: 28,
+                    ),
+                  );
+                }),
+              ),
+              if (_formRating > 0) ...[
+                const SizedBox(width: 8),
+                GestureDetector(
+                  onTap: () => setState(() => _formRating = 0),
+                  child: const Text('clear', style: TextStyle(color: _medium, fontSize: 12)),
+                ),
+              ],
+            ],
+          ),
+          const SizedBox(height: 16),
+          TextField(
+            controller: _commentController,
+            maxLines: 3,
+            style: const TextStyle(color: _dark, fontSize: 14),
+            decoration: InputDecoration(
+              hintText: 'Write a comment (optional)…',
+              hintStyle: const TextStyle(color: _medium),
+              filled: true,
+              fillColor: _offWhite,
+              contentPadding: const EdgeInsets.all(14),
+              border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(8),
+                  borderSide: const BorderSide(color: _taupe)),
+              enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(8),
+                  borderSide: const BorderSide(color: _taupe)),
+              focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(8),
+                  borderSide: const BorderSide(color: _dark, width: 1.5)),
+            ),
+          ),
+          const SizedBox(height: 16),
+          SizedBox(
+            height: 44,
+            child: ElevatedButton(
+              onPressed: _isSubmitting ? null : _submitReview,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: _dark,
+                foregroundColor: _offWhite,
+                disabledBackgroundColor: _taupe,
+                padding: const EdgeInsets.symmetric(horizontal: 28),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+              ),
+              child: _isSubmitting
+                  ? const SizedBox(
+                      width: 18, height: 18,
+                      child: CircularProgressIndicator(color: _offWhite, strokeWidth: 2))
+                  : const Text('Submit Review'),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildStatusBanner({
+    required IconData icon,
+    required Color color,
+    required String message,
+  }) {
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: color.withValues(alpha: 0.4)),
+      ),
+      child: Row(
+        children: [
+          Icon(icon, color: color, size: 18),
+          const SizedBox(width: 10),
+          Text(message, style: TextStyle(color: color, fontSize: 13, fontWeight: FontWeight.w600)),
+        ],
+      ),
     );
   }
 

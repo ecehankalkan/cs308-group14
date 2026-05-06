@@ -26,16 +26,28 @@ class ProfileUpdateSerializer(serializers.ModelSerializer):
 
 
 class ProductSerializer(serializers.ModelSerializer):
-    in_stock = serializers.SerializerMethodField()
+    in_stock      = serializers.SerializerMethodField()
+    average_rating = serializers.SerializerMethodField()
+    rating_count   = serializers.SerializerMethodField()
 
     class Meta:
         model  = Product
         fields = ['id', 'name', 'model', 'serial_number', 'description',
                   'stock_quantity', 'price', 'discounted_price', 'in_stock',
-                  'warranty_status', 'distributor_info', 'category', 'popularity_score']
+                  'warranty_status', 'distributor_info', 'category', 'popularity_score',
+                  'average_rating', 'rating_count']
 
     def get_in_stock(self, obj):
         return obj.stock_quantity > 0
+
+    def get_average_rating(self, obj):
+        from django.db.models import Avg
+        result = obj.reviews.filter(rating__isnull=False).exclude(status='rejected').aggregate(avg=Avg('rating'))
+        avg = result['avg']
+        return round(avg, 1) if avg is not None else None
+
+    def get_rating_count(self, obj):
+        return obj.reviews.filter(rating__isnull=False).exclude(status='rejected').count()
 
 
 class OrderItemSerializer(serializers.ModelSerializer):

@@ -21,6 +21,8 @@ class Product {
   final String distributor;
   final int stockQuantity;
   final DeweyCategory category;
+  final double? averageRating;
+  final int ratingCount;
 
   const Product({
     required this.id,
@@ -32,6 +34,8 @@ class Product {
     required this.distributor,
     required this.stockQuantity,
     required this.category,
+    this.averageRating,
+    this.ratingCount = 0,
   });
 
   // TODO: replace with Firestore: Product.fromFirestore(DocumentSnapshot doc)
@@ -50,6 +54,10 @@ class Product {
       distributor: map['distributor_info']?.toString() ?? map['distributor']?.toString() ?? 'Default Distributor',
       stockQuantity: map['stock_quantity'] as int? ?? map['stockQuantity'] as int? ?? 0,
       category: _parseCategory(map['category']),
+      averageRating: map['average_rating'] != null
+          ? double.tryParse(map['average_rating'].toString())
+          : null,
+      ratingCount: map['rating_count'] as int? ?? 0,
     );
   }
 

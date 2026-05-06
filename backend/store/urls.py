@@ -22,6 +22,7 @@ urlpatterns = [
     path('products/<int:pk>/discount/',      views.ProductDiscountView.as_view(), name='product_discount'),
     path('products/<int:pk>/price/',         views.ProductPriceView.as_view(),    name='product_price'),
     path('products/<int:product_id>/reviews/', views.ProductReviewListCreateView.as_view(), name='product_reviews'),
+    path('products/<int:product_id>/my-review/', views.MyProductReviewView.as_view(), name='my_review'),
     path('reviews/<int:pk>/',                views.ProductReviewDetailView.as_view(),     name='review_detail'),
 
     # Cart (Authenticated Only)
