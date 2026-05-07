@@ -6,6 +6,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../services/auth_service.dart';
 import '../services/cart_service.dart';
 import '../models/product.dart';
+import 'product_page.dart';
 
 const _dark     = Color(0xFF8D7B68);
 const _medium   = Color(0xFFA4907C);
@@ -15,6 +16,7 @@ const _offWhite = Color(0xFFFAF5EF);
 
 const String _baseUrl = 'http://127.0.0.1:8000/api';
 
+<<<<<<< HEAD
 // ─── Hardcoded covers for books that need specific/reliable images ─────────────
 const Map<String, String> _hardcodedCovers = {
   'The Bible':
@@ -25,14 +27,18 @@ const Map<String, String> _hardcodedCovers = {
       'https://covers.openlibrary.org/b/isbn/9780852294239-M.jpg',
 };
 
+=======
+// ─── Open Library cover URL by book title ─────────────────────────────────────
+>>>>>>> parent of 6d37bdc (Fix book cover images and uniform card sizing on home page)
 String _coverUrl(String title) {
-  if (_hardcodedCovers.containsKey(title)) {
-    return _hardcodedCovers[title]!;
-  }
   final encoded = Uri.encodeComponent(title);
   return 'https://covers.openlibrary.org/b/title/$encoded-M.jpg';
 }
 
+<<<<<<< HEAD
+=======
+// ─── Category number → DeweyCategory mapping ─────────────────────────────────
+>>>>>>> parent of 6d37bdc (Fix book cover images and uniform card sizing on home page)
 DeweyCategory _categoryFromInt(int? cat) {
   switch (cat) {
     case 1:  return DeweyCategory.generalWorks;
@@ -62,60 +68,6 @@ const Map<DeweyCategory, Color> _categoryColors = {
   DeweyCategory.history:        Color(0xFF7A6E4A),
 };
 
-// ─── Wishlist API helper ──────────────────────────────────────────────────────
-Future<void> addToWishlist(BuildContext context, Product product) async {
-  final prefs = await SharedPreferences.getInstance();
-  final token = prefs.getString('access_token');
-  if (token == null || token.isEmpty) {
-    if (context.mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-        content: const Text('Please log in to add items to your wishlist.'),
-        backgroundColor: _dark,
-        action: SnackBarAction(
-          label: 'Login',
-          textColor: _cream,
-          onPressed: () => Navigator.pushNamed(context, '/login'),
-        ),
-      ));
-    }
-    return;
-  }
-  try {
-    final response = await http.post(
-      Uri.parse('$_baseUrl/wishlist/'),
-      headers: {
-        'Authorization': 'Bearer $token',
-        'Content-Type': 'application/json',
-      },
-      body: jsonEncode({'product_id': int.parse(product.id)}),
-    );
-    if (context.mounted) {
-      if (response.statusCode == 201) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: Text('${product.name} added to wishlist!'),
-          backgroundColor: Colors.pink.shade400,
-        ));
-      } else if (response.statusCode == 200) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: Text('${product.name} is already in your wishlist.'),
-          backgroundColor: _medium,
-        ));
-      } else {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-          content: Text('Failed to add to wishlist.'),
-          backgroundColor: Colors.red,
-        ));
-      }
-    }
-  } catch (e) {
-    if (context.mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-        content: Text('Could not connect to server.'),
-        backgroundColor: Colors.red,
-      ));
-    }
-  }
-}
 
 enum _SortOption { none, priceLowHigh, priceHighLow }
 
@@ -131,11 +83,18 @@ class _HomePageState extends State<HomePage> {
   List<Product>  _allProducts  = [];
   bool           _loadingBooks = true;
   String?        _fetchError;
+  Set<int>       _wishlistProductIds = {};
 
   String            _searchQuery      = '';
   DeweyCategory?    _selectedCategory;
   double            _minPrice         = 0;
+<<<<<<< HEAD
   double            _maxPrice         = 9999;
+=======
+  double            _maxPrice         = 100;
+  final double      _absoluteMin      = 0;
+  double            _absoluteMax      = 100;
+>>>>>>> parent of 6d37bdc (Fix book cover images and uniform card sizing on home page)
   _SortOption       _sortOption       = _SortOption.none;
   final ScrollController _scrollController = ScrollController();
   final GlobalKey        _searchKey        = GlobalKey();
@@ -144,12 +103,84 @@ class _HomePageState extends State<HomePage> {
   void initState() {
     super.initState();
     _fetchProducts();
+    _fetchWishlist();
   }
 
   @override
   void dispose() {
     _scrollController.dispose();
     super.dispose();
+  }
+
+  Future<void> _fetchWishlist() async {
+    final prefs = await SharedPreferences.getInstance();
+    final token = prefs.getString('access_token');
+    if (token == null || token.isEmpty) return;
+    try {
+      final response = await http.get(
+        Uri.parse('$_baseUrl/wishlist/'),
+        headers: {'Authorization': 'Bearer $token'},
+      );
+      if (response.statusCode == 200) {
+        final List<dynamic> data = jsonDecode(response.body);
+        setState(() {
+          _wishlistProductIds = data
+              .map<int>((item) => item['product']['id'] as int)
+              .toSet();
+        });
+      }
+    } catch (_) {}
+  }
+
+  Future<void> _toggleWishlist(BuildContext context, Product product) async {
+    final prefs = await SharedPreferences.getInstance();
+    final token = prefs.getString('access_token');
+    if (token == null || token.isEmpty) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: const Text('Please log in to add items to your wishlist.'),
+          backgroundColor: _dark,
+          action: SnackBarAction(
+            label: 'Login',
+            textColor: _cream,
+            onPressed: () => Navigator.pushNamed(context, '/login'),
+          ),
+        ));
+      }
+      return;
+    }
+    final productId = int.parse(product.id);
+    final inWishlist = _wishlistProductIds.contains(productId);
+    try {
+      if (inWishlist) {
+        final response = await http.delete(
+          Uri.parse('$_baseUrl/wishlist/$productId/'),
+          headers: {'Authorization': 'Bearer $token'},
+        );
+        if (response.statusCode == 204) {
+          setState(() => _wishlistProductIds.remove(productId));
+        }
+      } else {
+        final response = await http.post(
+          Uri.parse('$_baseUrl/wishlist/'),
+          headers: {
+            'Authorization': 'Bearer $token',
+            'Content-Type': 'application/json',
+          },
+          body: jsonEncode({'product_id': productId}),
+        );
+        if (response.statusCode == 201) {
+          setState(() => _wishlistProductIds.add(productId));
+        }
+      }
+    } catch (_) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+          content: Text('Could not connect to server.'),
+          backgroundColor: Colors.red,
+        ));
+      }
+    }
   }
 
   Future<void> _fetchProducts() async {
@@ -175,6 +206,16 @@ class _HomePageState extends State<HomePage> {
               category:      _categoryFromInt(map['category'] as int?),
             );
           }).toList();
+<<<<<<< HEAD
+=======
+          if (_allProducts.isNotEmpty) {
+            final maxPrice = _allProducts
+                .map((p) => p.price)
+                .reduce((a, b) => a > b ? a : b);
+            _maxPrice = maxPrice.ceilToDouble();
+            _absoluteMax = _maxPrice;
+          }
+>>>>>>> parent of 6d37bdc (Fix book cover images and uniform card sizing on home page)
           _loadingBooks = false;
         });
       } else {
@@ -251,7 +292,7 @@ class _HomePageState extends State<HomePage> {
           IconButton(
             icon: const Icon(Icons.favorite_border, color: _offWhite),
             tooltip: 'Wishlist',
-            onPressed: () => Navigator.pushNamed(context, '/wishlist'),
+            onPressed: () => Navigator.pushNamed(context, '/wishlist').then((_) => _fetchWishlist()),
           ),
           IconButton(
             icon: const Icon(Icons.shopping_cart_outlined, color: _offWhite),
@@ -274,6 +315,11 @@ class _HomePageState extends State<HomePage> {
                           style: const TextStyle(
                               fontWeight: FontWeight.bold, color: _dark),
                         ),
+                      ),
+                      PopupMenuItem(
+                        child: const Text('My Account',
+                            style: TextStyle(color: _dark)),
+                        onTap: () => Navigator.pushNamed(context, '/profile'),
                       ),
                       PopupMenuItem(
                         child: const Text('Logout',
@@ -320,14 +366,26 @@ class _HomePageState extends State<HomePage> {
               onSortChanged: (val) => setState(() => _sortOption = val!),
               minPrice: _minPrice,
               maxPrice: _maxPrice,
+<<<<<<< HEAD
               onMinPriceChanged: (val) => setState(() => _minPrice = val),
               onMaxPriceChanged: (val) => setState(() => _maxPrice = val),
+=======
+              absoluteMin: _absoluteMin,
+              absoluteMax: _absoluteMax,
+              onPriceChanged: (values) => setState(() {
+                _minPrice = values.start;
+                _maxPrice = values.end;
+              }),
+>>>>>>> parent of 6d37bdc (Fix book cover images and uniform card sizing on home page)
             ),
             _FeaturedBooksSection(
               products: _filteredProducts,
               loading: _loadingBooks,
               error: _fetchError,
               onRetry: _fetchProducts,
+              wishlistIds: _wishlistProductIds,
+              onWishlistToggle: (p) => _toggleWishlist(context, p),
+              onNavigatedBack: _fetchWishlist,
             ),
             _CategoriesSection(
               selectedCategory: _selectedCategory,
@@ -455,10 +513,23 @@ class _SearchFilterBarState extends State<_SearchFilterBar> {
   @override
   void initState() {
     super.initState();
+<<<<<<< HEAD
     _minController = TextEditingController(
         text: widget.minPrice == 0 ? '' : widget.minPrice.toStringAsFixed(0));
     _maxController = TextEditingController(
         text: widget.maxPrice == 9999 ? '' : widget.maxPrice.toStringAsFixed(0));
+=======
+    _minController = TextEditingController(text: widget.minPrice.toStringAsFixed(0));
+    _maxController = TextEditingController(text: widget.maxPrice.toStringAsFixed(0));
+  }
+
+  @override
+  void didUpdateWidget(_SearchFilterBar old) {
+    super.didUpdateWidget(old);
+    if (old.absoluteMax != widget.absoluteMax) {
+      _maxController.text = widget.maxPrice.toStringAsFixed(0);
+    }
+>>>>>>> parent of 6d37bdc (Fix book cover images and uniform card sizing on home page)
   }
 
   @override
@@ -468,6 +539,7 @@ class _SearchFilterBarState extends State<_SearchFilterBar> {
     super.dispose();
   }
 
+<<<<<<< HEAD
   void _onMinSubmitted(String val) {
     final parsed = double.tryParse(val);
     if (parsed != null && parsed >= 0) {
@@ -502,6 +574,30 @@ class _SearchFilterBarState extends State<_SearchFilterBar> {
           borderSide: const BorderSide(color: _dark, width: 1.5)),
     );
   }
+=======
+  void _apply() {
+    final min = double.tryParse(_minController.text) ?? widget.absoluteMin;
+    final max = double.tryParse(_maxController.text) ?? widget.absoluteMax;
+    final lo = min.clamp(widget.absoluteMin, widget.absoluteMax);
+    final hi = max.clamp(widget.absoluteMin, widget.absoluteMax);
+    widget.onPriceChanged(RangeValues(lo <= hi ? lo : hi, hi >= lo ? hi : lo));
+  }
+
+  InputDecoration _fieldDecoration(String hint) => InputDecoration(
+        hintText: hint,
+        hintStyle: const TextStyle(color: _medium),
+        prefixText: '\$',
+        prefixStyle: const TextStyle(color: _dark, fontWeight: FontWeight.w600),
+        filled: true,
+        fillColor: _offWhite,
+        contentPadding: const EdgeInsets.symmetric(vertical: 10, horizontal: 12),
+        border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(6), borderSide: BorderSide.none),
+        focusedBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(6),
+            borderSide: const BorderSide(color: _dark, width: 1.5)),
+      );
+>>>>>>> parent of 6d37bdc (Fix book cover images and uniform card sizing on home page)
 
   @override
   Widget build(BuildContext context) {
@@ -565,12 +661,20 @@ class _SearchFilterBarState extends State<_SearchFilterBar> {
                   ),
                 ],
               ),
+<<<<<<< HEAD
 
               // Price range inputs
               Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   const Text('Price:',
+=======
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  const Text('Price range:',
+>>>>>>> parent of 6d37bdc (Fix book cover images and uniform card sizing on home page)
                       style: TextStyle(color: _dark, fontWeight: FontWeight.w600, fontSize: 13)),
                   const SizedBox(width: 10),
                   SizedBox(
@@ -579,14 +683,24 @@ class _SearchFilterBarState extends State<_SearchFilterBar> {
                       controller: _minController,
                       keyboardType: TextInputType.number,
                       style: const TextStyle(color: _dark, fontSize: 13),
+<<<<<<< HEAD
                       decoration: _priceFieldDecoration('Min'),
                       onSubmitted: _onMinSubmitted,
                       onEditingComplete: () => _onMinSubmitted(_minController.text),
+=======
+                      decoration: _fieldDecoration('Min'),
+                      onSubmitted: (_) => _apply(),
+                      onEditingComplete: _apply,
+>>>>>>> parent of 6d37bdc (Fix book cover images and uniform card sizing on home page)
                     ),
                   ),
                   const Padding(
                     padding: EdgeInsets.symmetric(horizontal: 8),
+<<<<<<< HEAD
                     child: Text('–', style: TextStyle(color: _dark, fontWeight: FontWeight.w700)),
+=======
+                    child: Text('–', style: TextStyle(color: _dark, fontWeight: FontWeight.w600)),
+>>>>>>> parent of 6d37bdc (Fix book cover images and uniform card sizing on home page)
                   ),
                   SizedBox(
                     width: 90,
@@ -594,6 +708,7 @@ class _SearchFilterBarState extends State<_SearchFilterBar> {
                       controller: _maxController,
                       keyboardType: TextInputType.number,
                       style: const TextStyle(color: _dark, fontSize: 13),
+<<<<<<< HEAD
                       decoration: _priceFieldDecoration('Max'),
                       onSubmitted: _onMaxSubmitted,
                       onEditingComplete: () => _onMaxSubmitted(_maxController.text),
@@ -615,6 +730,13 @@ class _SearchFilterBarState extends State<_SearchFilterBar> {
                     ),
                     child: const Text('Apply', style: TextStyle(fontSize: 13)),
                   ),
+=======
+                      decoration: _fieldDecoration('Max'),
+                      onSubmitted: (_) => _apply(),
+                      onEditingComplete: _apply,
+                    ),
+                  ),
+>>>>>>> parent of 6d37bdc (Fix book cover images and uniform card sizing on home page)
                 ],
               ),
             ],
@@ -627,16 +749,22 @@ class _SearchFilterBarState extends State<_SearchFilterBar> {
 
 // ─── Featured Books Section ───────────────────────────────────────────────────
 class _FeaturedBooksSection extends StatelessWidget {
-  final List<Product> products;
-  final bool          loading;
-  final String?       error;
-  final VoidCallback  onRetry;
+  final List<Product>          products;
+  final bool                   loading;
+  final String?                error;
+  final VoidCallback           onRetry;
+  final Set<int>               wishlistIds;
+  final void Function(Product) onWishlistToggle;
+  final VoidCallback           onNavigatedBack;
 
   const _FeaturedBooksSection({
     required this.products,
     required this.loading,
     required this.error,
     required this.onRetry,
+    required this.wishlistIds,
+    required this.onWishlistToggle,
+    required this.onNavigatedBack,
   });
 
   @override
@@ -646,12 +774,7 @@ class _FeaturedBooksSection extends StatelessWidget {
       padding: const EdgeInsets.symmetric(vertical: 64, horizontal: 48),
       child: Column(
         children: [
-          const Text('Featured Books',
-              style: TextStyle(color: _dark, fontSize: 32, fontWeight: FontWeight.w700, letterSpacing: 1)),
-          const SizedBox(height: 8),
-          const Text('Handpicked favourites from our collection',
-              style: TextStyle(color: _medium, fontSize: 15)),
-          const SizedBox(height: 40),
+
 
           if (loading)
             const Padding(
@@ -693,6 +816,7 @@ class _FeaturedBooksSection extends StatelessWidget {
               ),
             )
           else
+<<<<<<< HEAD
             LayoutBuilder(
               builder: (context, constraints) {
                 const cardWidth   = 200.0;
@@ -709,6 +833,16 @@ class _FeaturedBooksSection extends StatelessWidget {
                   )).toList(),
                 );
               },
+=======
+            Wrap(
+              spacing: 24, runSpacing: 24, alignment: WrapAlignment.center,
+              children: products.map((p) => _ProductCard(
+                product: p,
+                isInWishlist: wishlistIds.contains(int.parse(p.id)),
+                onWishlistToggle: () => onWishlistToggle(p),
+                onNavigatedBack: onNavigatedBack,
+              )).toList(),
+>>>>>>> parent of 6d37bdc (Fix book cover images and uniform card sizing on home page)
             ),
         ],
       ),
@@ -716,14 +850,33 @@ class _FeaturedBooksSection extends StatelessWidget {
   }
 }
 
-// ─── Product Card ─────────────────────────────────────────────────────────────
+// ─── Product Card with real book cover ───────────────────────────────────────
 class _ProductCard extends StatelessWidget {
-  final Product product;
-  const _ProductCard({required this.product});
+  final Product      product;
+  final bool         isInWishlist;
+  final VoidCallback onWishlistToggle;
+  final VoidCallback onNavigatedBack;
+
+  const _ProductCard({
+    required this.product,
+    required this.isInWishlist,
+    required this.onWishlistToggle,
+    required this.onNavigatedBack,
+  });
 
   @override
   Widget build(BuildContext context) {
-    return Container(
+    return GestureDetector(
+      onTap: () {
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => ProductPage(product: product),
+          ),
+        ).then((_) => onNavigatedBack());
+      },
+      child: Container(
+        width: 220,
       decoration: BoxDecoration(
         color: _offWhite,
         borderRadius: BorderRadius.circular(8),
@@ -732,31 +885,37 @@ class _ProductCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+<<<<<<< HEAD
+=======
+          // ── Book cover with real image from Open Library ──────────────
+>>>>>>> parent of 6d37bdc (Fix book cover images and uniform card sizing on home page)
           Stack(
             children: [
               ClipRRect(
                 borderRadius: const BorderRadius.vertical(top: Radius.circular(7)),
                 child: Image.network(
                   _coverUrl(product.name),
-                  height: 200,
-                  width: double.infinity,
-                  fit: BoxFit.cover,
-                  cacheWidth: 300,
-                  cacheHeight: 200,
-                  filterQuality: FilterQuality.low,
+                    height: 180,
+                    width: double.infinity,
+                    fit: BoxFit.cover,
+                    cacheWidth: 220,
+                    cacheHeight: 180,
+                    filterQuality: FilterQuality.low,
+                  // While loading show a shimmer-like placeholder
                   loadingBuilder: (context, child, progress) {
                     if (progress == null) return child;
                     return Container(
-                      height: 200,
+                      height: 180,
                       color: _taupe,
                       child: const Center(
                         child: CircularProgressIndicator(color: _offWhite, strokeWidth: 2),
                       ),
                     );
                   },
+                  // If image fails show the book icon fallback
                   errorBuilder: (context, error, stackTrace) {
                     return Container(
-                      height: 200,
+                      height: 180,
                       color: _taupe,
                       child: const Center(
                         child: Icon(Icons.menu_book, color: _offWhite, size: 64),
@@ -765,27 +924,40 @@ class _ProductCard extends StatelessWidget {
                   },
                 ),
               ),
+<<<<<<< HEAD
+=======
+              // Wishlist heart button
+>>>>>>> parent of 6d37bdc (Fix book cover images and uniform card sizing on home page)
               Positioned(
                 top: 8, right: 8,
                 child: GestureDetector(
-                  onTap: () => addToWishlist(context, product),
+                  onTap: onWishlistToggle,
                   child: Container(
                     padding: const EdgeInsets.all(6),
                     decoration: BoxDecoration(
                       color: _offWhite.withValues(alpha: 0.85),
                       shape: BoxShape.circle,
                     ),
-                    child: const Icon(Icons.favorite_border, color: Colors.red, size: 18),
+                    child: Icon(
+                      isInWishlist ? Icons.favorite : Icons.favorite_border,
+                      color: Colors.red,
+                      size: 18,
+                    ),
                   ),
                 ),
               ),
             ],
           ),
+<<<<<<< HEAD
+=======
+
+>>>>>>> parent of 6d37bdc (Fix book cover images and uniform card sizing on home page)
           Padding(
             padding: const EdgeInsets.all(14),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
+<<<<<<< HEAD
                 SizedBox(
                   height: 40,
                   child: Text(
@@ -807,13 +979,30 @@ class _ProductCard extends StatelessWidget {
                     overflow: TextOverflow.ellipsis,
                     style: const TextStyle(color: _medium, fontSize: 11, height: 1.4),
                   ),
+=======
+                Text(
+                  product.name,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    color: _categoryColors[product.category],
+                    fontSize: 14, fontWeight: FontWeight.w700, height: 1.3,
+                  ),
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  product.description,
+                  maxLines: 3,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(color: _medium, fontSize: 12, height: 1.4),
+>>>>>>> parent of 6d37bdc (Fix book cover images and uniform card sizing on home page)
                 ),
                 const SizedBox(height: 12),
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     Text('\$${product.price.toStringAsFixed(2)}',
-                        style: const TextStyle(color: _dark, fontSize: 15, fontWeight: FontWeight.w800)),
+                        style: const TextStyle(color: _dark, fontSize: 16, fontWeight: FontWeight.w800)),
                     Text(
                       product.stockQuantity > 0 ? 'In stock' : 'Out of stock',
                       style: TextStyle(
@@ -865,7 +1054,7 @@ class _ProductCard extends StatelessWidget {
           ),
         ],
       ),
-    );
+    ));
   }
 }
 
