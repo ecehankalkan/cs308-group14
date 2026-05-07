@@ -58,6 +58,7 @@ class _CartPageState extends State<CartPage> {
   }
 
   void _changeQuantity(CartItem item, int nextQuantity) {
+    if (nextQuantity > item.product.stockQuantity) return;
     setState(() {
       if (nextQuantity <= 0) {
         _items.removeWhere((i) => i.cartItemId == item.cartItemId);
@@ -365,18 +366,10 @@ class _CartPageState extends State<CartPage> {
                           ),
                           _QuantityButton(
                             icon: Icons.add,
-                            onPressed: () => _changeQuantity(item, item.quantity + 1),
+                            onPressed: item.quantity < product.stockQuantity
+                                ? () => _changeQuantity(item, item.quantity + 1)
+                                : null,
                           ),
-                          const Spacer(),
-                          if (item.quantity >= product.stockQuantity)
-                            const Text(
-                              'Max stock reached',
-                              style: TextStyle(
-                                color: Colors.redAccent,
-                                fontSize: 12,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
                         ],
                       ),
                     ],
@@ -543,8 +536,9 @@ class _QuantityButton extends StatelessWidget {
         onPressed: onPressed,
         style: OutlinedButton.styleFrom(
           padding: EdgeInsets.zero,
-          side: const BorderSide(color: _dark),
+          side: BorderSide(color: onPressed != null ? _dark : _taupe),
           foregroundColor: _dark,
+          disabledForegroundColor: _taupe,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(6),
           ),

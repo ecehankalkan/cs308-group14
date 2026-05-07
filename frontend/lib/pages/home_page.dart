@@ -65,7 +65,7 @@ const Map<DeweyCategory, Color> _categoryColors = {
 };
 // ─── Home Page ─────────────────────────────────────────────────────────────────
 
-enum _SortOption { none, priceLowHigh, priceHighLow }
+enum _SortOption { none, priceLowHigh, priceHighLow, popularity }
 
 // ─── HomePage ─────────────────────────────────────────────────────────────────
 class HomePage extends StatefulWidget {
@@ -206,6 +206,10 @@ class _HomePageState extends State<HomePage> {
               distributor:   map['distributor_info']?.toString() ?? '',
               stockQuantity: map['stock_quantity'] as int? ?? 0,
               category:      _categoryFromInt(map['category'] as int?),
+              averageRating: map['average_rating'] != null
+                  ? double.tryParse(map['average_rating'].toString())
+                  : null,
+              ratingCount:   map['rating_count'] as int? ?? 0,
             );
           }).toList();
           _loadingBooks = false;
@@ -245,6 +249,9 @@ class _HomePageState extends State<HomePage> {
         break;
       case _SortOption.priceHighLow:
         result.sort((a, b) => b.price.compareTo(a.price));
+        break;
+      case _SortOption.popularity:
+        result.sort((a, b) => (b.averageRating ?? 0.0).compareTo(a.averageRating ?? 0.0));
         break;
       case _SortOption.none:
         break;
@@ -585,7 +592,7 @@ class _SearchFilterBarState extends State<_SearchFilterBar> {
               Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  const Text('Sort by price:',
+                  const Text('Sort by:',
                       style: TextStyle(color: _dark, fontWeight: FontWeight.w600, fontSize: 13)),
                   const SizedBox(width: 10),
                   DropdownButtonHideUnderline(
@@ -596,8 +603,9 @@ class _SearchFilterBarState extends State<_SearchFilterBar> {
                       borderRadius: BorderRadius.circular(6),
                       items: const [
                         DropdownMenuItem(value: _SortOption.none,         child: Text('Default')),
-                        DropdownMenuItem(value: _SortOption.priceLowHigh, child: Text('Low → High')),
-                        DropdownMenuItem(value: _SortOption.priceHighLow, child: Text('High → Low')),
+                        DropdownMenuItem(value: _SortOption.popularity,   child: Text('Popularity')),
+                        DropdownMenuItem(value: _SortOption.priceLowHigh, child: Text('Price: Low → High')),
+                        DropdownMenuItem(value: _SortOption.priceHighLow, child: Text('Price: High → Low')),
                       ],
                       onChanged: widget.onSortChanged,
                     ),
@@ -855,6 +863,26 @@ class _ProductCard extends StatelessWidget {
                       fontSize: 13, fontWeight: FontWeight.w700, height: 1.3,
                     ),
                   ),
+                ),
+                const SizedBox(height: 4),
+                Row(
+                  children: [
+                    Row(
+                      children: List.generate(5, (i) {
+                        final avg = product.averageRating ?? 0.0;
+                        final whole = avg.floor();
+                        final hasHalf = (avg - whole) >= 0.5;
+                        if (i < whole) return const Icon(Icons.star, color: _dark, size: 14);
+                        if (i == whole && hasHalf) return const Icon(Icons.star_half, color: _dark, size: 14);
+                        return const Icon(Icons.star_border, color: _dark, size: 14);
+                      }),
+                    ),
+                    const SizedBox(width: 4),
+                    Text(
+                      product.averageRating != null ? '${product.averageRating!.toStringAsFixed(1)} (${product.ratingCount})' : 'No ratings',
+                      style: const TextStyle(color: _dark, fontSize: 11, fontWeight: FontWeight.w600),
+                    ),
+                  ],
                 ),
                 const SizedBox(height: 6),
                 SizedBox(
