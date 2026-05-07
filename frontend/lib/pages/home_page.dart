@@ -75,6 +75,7 @@ class _HomePageState extends State<HomePage> {
   double            _minPrice         = 0;
   double            _maxPrice         = 100;
   final double      _absoluteMin      = 0;
+  double            _absoluteMax      = 100;
   _SortOption       _sortOption       = _SortOption.none;
   final ScrollController _scrollController = ScrollController();
   final GlobalKey        _searchKey        = GlobalKey();
@@ -191,6 +192,7 @@ class _HomePageState extends State<HomePage> {
                 .map((p) => p.price)
                 .reduce((a, b) => a > b ? a : b);
             _maxPrice = maxPrice.ceilToDouble();
+            _absoluteMax = _maxPrice;
           }
           _loadingBooks = false;
         });
@@ -343,7 +345,7 @@ class _HomePageState extends State<HomePage> {
               minPrice: _minPrice,
               maxPrice: _maxPrice,
               absoluteMin: _absoluteMin,
-              absoluteMax: _maxPrice,
+              absoluteMax: _absoluteMax,
               onPriceChanged: (values) => setState(() {
                 _minPrice = values.start;
                 _maxPrice = values.end;
@@ -451,7 +453,7 @@ class _FeaturesSection extends StatelessWidget {
 }
 
 // ─── Search + Filter Bar ──────────────────────────────────────────────────────
-class _SearchFilterBar extends StatelessWidget {
+class _SearchFilterBar extends StatefulWidget {
   final String                     searchQuery;
   final ValueChanged<String>       onSearchChanged;
   final _SortOption                sortOption;
@@ -476,6 +478,59 @@ class _SearchFilterBar extends StatelessWidget {
   });
 
   @override
+  State<_SearchFilterBar> createState() => _SearchFilterBarState();
+}
+
+class _SearchFilterBarState extends State<_SearchFilterBar> {
+  late TextEditingController _minController;
+  late TextEditingController _maxController;
+
+  @override
+  void initState() {
+    super.initState();
+    _minController = TextEditingController(text: widget.minPrice.toStringAsFixed(0));
+    _maxController = TextEditingController(text: widget.maxPrice.toStringAsFixed(0));
+  }
+
+  @override
+  void didUpdateWidget(_SearchFilterBar old) {
+    super.didUpdateWidget(old);
+    if (old.absoluteMax != widget.absoluteMax) {
+      _maxController.text = widget.maxPrice.toStringAsFixed(0);
+    }
+  }
+
+  @override
+  void dispose() {
+    _minController.dispose();
+    _maxController.dispose();
+    super.dispose();
+  }
+
+  void _apply() {
+    final min = double.tryParse(_minController.text) ?? widget.absoluteMin;
+    final max = double.tryParse(_maxController.text) ?? widget.absoluteMax;
+    final lo = min.clamp(widget.absoluteMin, widget.absoluteMax);
+    final hi = max.clamp(widget.absoluteMin, widget.absoluteMax);
+    widget.onPriceChanged(RangeValues(lo <= hi ? lo : hi, hi >= lo ? hi : lo));
+  }
+
+  InputDecoration _fieldDecoration(String hint) => InputDecoration(
+        hintText: hint,
+        hintStyle: const TextStyle(color: _medium),
+        prefixText: '\$',
+        prefixStyle: const TextStyle(color: _dark, fontWeight: FontWeight.w600),
+        filled: true,
+        fillColor: _offWhite,
+        contentPadding: const EdgeInsets.symmetric(vertical: 10, horizontal: 12),
+        border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(6), borderSide: BorderSide.none),
+        focusedBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(6),
+            borderSide: const BorderSide(color: _dark, width: 1.5)),
+      );
+
+  @override
   Widget build(BuildContext context) {
     return Container(
       color: _cream,
@@ -484,16 +539,16 @@ class _SearchFilterBar extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           TextField(
-            onChanged: onSearchChanged,
+            onChanged: widget.onSearchChanged,
             style: const TextStyle(color: _dark),
             decoration: InputDecoration(
               hintText: 'Search by title or description…',
               hintStyle: const TextStyle(color: _medium),
               prefixIcon: const Icon(Icons.search, color: _medium),
-              suffixIcon: searchQuery.isNotEmpty
+              suffixIcon: widget.searchQuery.isNotEmpty
                   ? IconButton(
                       icon: const Icon(Icons.clear, color: _medium),
-                      onPressed: () => onSearchChanged(''))
+                      onPressed: () => widget.onSearchChanged(''))
                   : null,
               filled: true,
               fillColor: _offWhite,
@@ -518,7 +573,7 @@ class _SearchFilterBar extends StatelessWidget {
                   const SizedBox(width: 10),
                   DropdownButtonHideUnderline(
                     child: DropdownButton<_SortOption>(
-                      value: sortOption,
+                      value: widget.sortOption,
                       dropdownColor: _offWhite,
                       style: const TextStyle(color: _dark, fontSize: 13),
                       borderRadius: BorderRadius.circular(6),
@@ -527,37 +582,45 @@ class _SearchFilterBar extends StatelessWidget {
                         DropdownMenuItem(value: _SortOption.priceLowHigh, child: Text('Low → High')),
                         DropdownMenuItem(value: _SortOption.priceHighLow, child: Text('High → Low')),
                       ],
-                      onChanged: onSortChanged,
+                      onChanged: widget.onSortChanged,
                     ),
                   ),
                 ],
               ),
-              SizedBox(
-                width: 340,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Price range:  \$${minPrice.toStringAsFixed(0)} – \$${maxPrice.toStringAsFixed(0)}',
-                      style: const TextStyle(color: _dark, fontWeight: FontWeight.w600, fontSize: 13),
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  const Text('Price range:',
+                      style: TextStyle(color: _dark, fontWeight: FontWeight.w600, fontSize: 13)),
+                  const SizedBox(width: 10),
+                  SizedBox(
+                    width: 90,
+                    child: TextField(
+                      controller: _minController,
+                      keyboardType: TextInputType.number,
+                      style: const TextStyle(color: _dark, fontSize: 13),
+                      decoration: _fieldDecoration('Min'),
+                      onSubmitted: (_) => _apply(),
+                      onEditingComplete: _apply,
                     ),
-                    SliderTheme(
-                      data: SliderTheme.of(context).copyWith(
-                        activeTrackColor: _dark,
-                        inactiveTrackColor: _taupe,
-                        thumbColor: _dark,
-                        overlayColor: _dark.withValues(alpha: 0.15),
-                        rangeThumbShape: const RoundRangeSliderThumbShape(enabledThumbRadius: 7),
-                      ),
-                      child: RangeSlider(
-                        min: absoluteMin,
-                        max: absoluteMax,
-                        values: RangeValues(minPrice, maxPrice),
-                        onChanged: onPriceChanged,
-                      ),
+                  ),
+                  const Padding(
+                    padding: EdgeInsets.symmetric(horizontal: 8),
+                    child: Text('–', style: TextStyle(color: _dark, fontWeight: FontWeight.w600)),
+                  ),
+                  SizedBox(
+                    width: 90,
+                    child: TextField(
+                      controller: _maxController,
+                      keyboardType: TextInputType.number,
+                      style: const TextStyle(color: _dark, fontSize: 13),
+                      decoration: _fieldDecoration('Max'),
+                      onSubmitted: (_) => _apply(),
+                      onEditingComplete: _apply,
                     ),
-                  ],
-                ),
+                  ),
+                ],
               ),
             ],
           ),
