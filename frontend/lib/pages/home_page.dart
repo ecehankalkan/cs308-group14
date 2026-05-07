@@ -6,7 +6,6 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../services/auth_service.dart';
 import '../services/cart_service.dart';
 import '../models/product.dart';
-import 'product_page.dart';
 
 const _dark     = Color(0xFF8D7B68);
 const _medium   = Color(0xFFA4907C);
@@ -16,13 +15,24 @@ const _offWhite = Color(0xFFFAF5EF);
 
 const String _baseUrl = 'http://127.0.0.1:8000/api';
 
-// ─── Open Library cover URL by book title ─────────────────────────────────────
+// ─── Hardcoded covers for books that need specific/reliable images ─────────────
+const Map<String, String> _hardcodedCovers = {
+  'The Bible':
+      'https://covers.openlibrary.org/b/isbn/9780310446958-M.jpg',
+  'The Oxford Dictionary of English':
+      'https://covers.openlibrary.org/b/isbn/9780199571123-M.jpg',
+  'The Encyclopaedia Britannica Vol. 1':
+      'https://covers.openlibrary.org/b/isbn/9780852294239-M.jpg',
+};
+
 String _coverUrl(String title) {
+  if (_hardcodedCovers.containsKey(title)) {
+    return _hardcodedCovers[title]!;
+  }
   final encoded = Uri.encodeComponent(title);
   return 'https://covers.openlibrary.org/b/title/$encoded-M.jpg';
 }
 
-// ─── Category number → DeweyCategory mapping ─────────────────────────────────
 DeweyCategory _categoryFromInt(int? cat) {
   switch (cat) {
     case 1:  return DeweyCategory.generalWorks;
@@ -52,8 +62,61 @@ const Map<DeweyCategory, Color> _categoryColors = {
   DeweyCategory.history:        Color(0xFF7A6E4A),
 };
 
+// ─── Wishlist API helper ──────────────────────────────────────────────────────
+Future<void> addToWishlist(BuildContext context, Product product) async {
+  final prefs = await SharedPreferences.getInstance();
+  final token = prefs.getString('access_token');
+  if (token == null || token.isEmpty) {
+    if (context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: const Text('Please log in to add items to your wishlist.'),
+        backgroundColor: _dark,
+        action: SnackBarAction(
+          label: 'Login',
+          textColor: _cream,
+          onPressed: () => Navigator.pushNamed(context, '/login'),
+        ),
+      ));
+    }
+    return;
+  }
+  try {
+    final response = await http.post(
+      Uri.parse('$_baseUrl/wishlist/'),
+      headers: {
+        'Authorization': 'Bearer $token',
+        'Content-Type': 'application/json',
+      },
+      body: jsonEncode({'product_id': int.parse(product.id)}),
+    );
+    if (context.mounted) {
+      if (response.statusCode == 201) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text('${product.name} added to wishlist!'),
+          backgroundColor: Colors.pink.shade400,
+        ));
+      } else if (response.statusCode == 200) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text('${product.name} is already in your wishlist.'),
+          backgroundColor: _medium,
+        ));
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+          content: Text('Failed to add to wishlist.'),
+          backgroundColor: Colors.red,
+        ));
+      }
+    }
+  } catch (e) {
+    if (context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+        content: Text('Could not connect to server.'),
+        backgroundColor: Colors.red,
+      ));
+    }
+  }
+}
 
-// ─── Sort options ─────────────────────────────────────────────────────────────
 enum _SortOption { none, priceLowHigh, priceHighLow }
 
 // ─── HomePage ─────────────────────────────────────────────────────────────────
@@ -68,14 +131,11 @@ class _HomePageState extends State<HomePage> {
   List<Product>  _allProducts  = [];
   bool           _loadingBooks = true;
   String?        _fetchError;
-  Set<int>       _wishlistProductIds = {};
 
   String            _searchQuery      = '';
   DeweyCategory?    _selectedCategory;
   double            _minPrice         = 0;
-  double            _maxPrice         = 100;
-  final double      _absoluteMin      = 0;
-  double            _absoluteMax      = 100;
+  double            _maxPrice         = 9999;
   _SortOption       _sortOption       = _SortOption.none;
   final ScrollController _scrollController = ScrollController();
   final GlobalKey        _searchKey        = GlobalKey();
@@ -84,84 +144,12 @@ class _HomePageState extends State<HomePage> {
   void initState() {
     super.initState();
     _fetchProducts();
-    _fetchWishlist();
   }
 
   @override
   void dispose() {
     _scrollController.dispose();
     super.dispose();
-  }
-
-  Future<void> _fetchWishlist() async {
-    final prefs = await SharedPreferences.getInstance();
-    final token = prefs.getString('access_token');
-    if (token == null || token.isEmpty) return;
-    try {
-      final response = await http.get(
-        Uri.parse('$_baseUrl/wishlist/'),
-        headers: {'Authorization': 'Bearer $token'},
-      );
-      if (response.statusCode == 200) {
-        final List<dynamic> data = jsonDecode(response.body);
-        setState(() {
-          _wishlistProductIds = data
-              .map<int>((item) => item['product']['id'] as int)
-              .toSet();
-        });
-      }
-    } catch (_) {}
-  }
-
-  Future<void> _toggleWishlist(BuildContext context, Product product) async {
-    final prefs = await SharedPreferences.getInstance();
-    final token = prefs.getString('access_token');
-    if (token == null || token.isEmpty) {
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: const Text('Please log in to add items to your wishlist.'),
-          backgroundColor: _dark,
-          action: SnackBarAction(
-            label: 'Login',
-            textColor: _cream,
-            onPressed: () => Navigator.pushNamed(context, '/login'),
-          ),
-        ));
-      }
-      return;
-    }
-    final productId = int.parse(product.id);
-    final inWishlist = _wishlistProductIds.contains(productId);
-    try {
-      if (inWishlist) {
-        final response = await http.delete(
-          Uri.parse('$_baseUrl/wishlist/$productId/'),
-          headers: {'Authorization': 'Bearer $token'},
-        );
-        if (response.statusCode == 204) {
-          setState(() => _wishlistProductIds.remove(productId));
-        }
-      } else {
-        final response = await http.post(
-          Uri.parse('$_baseUrl/wishlist/'),
-          headers: {
-            'Authorization': 'Bearer $token',
-            'Content-Type': 'application/json',
-          },
-          body: jsonEncode({'product_id': productId}),
-        );
-        if (response.statusCode == 201) {
-          setState(() => _wishlistProductIds.add(productId));
-        }
-      }
-    } catch (_) {
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-          content: Text('Could not connect to server.'),
-          backgroundColor: Colors.red,
-        ));
-      }
-    }
   }
 
   Future<void> _fetchProducts() async {
@@ -187,13 +175,6 @@ class _HomePageState extends State<HomePage> {
               category:      _categoryFromInt(map['category'] as int?),
             );
           }).toList();
-          if (_allProducts.isNotEmpty) {
-            final maxPrice = _allProducts
-                .map((p) => p.price)
-                .reduce((a, b) => a > b ? a : b);
-            _maxPrice = maxPrice.ceilToDouble();
-            _absoluteMax = _maxPrice;
-          }
           _loadingBooks = false;
         });
       } else {
@@ -270,7 +251,7 @@ class _HomePageState extends State<HomePage> {
           IconButton(
             icon: const Icon(Icons.favorite_border, color: _offWhite),
             tooltip: 'Wishlist',
-            onPressed: () => Navigator.pushNamed(context, '/wishlist').then((_) => _fetchWishlist()),
+            onPressed: () => Navigator.pushNamed(context, '/wishlist'),
           ),
           IconButton(
             icon: const Icon(Icons.shopping_cart_outlined, color: _offWhite),
@@ -293,11 +274,6 @@ class _HomePageState extends State<HomePage> {
                           style: const TextStyle(
                               fontWeight: FontWeight.bold, color: _dark),
                         ),
-                      ),
-                      PopupMenuItem(
-                        child: const Text('My Account',
-                            style: TextStyle(color: _dark)),
-                        onTap: () => Navigator.pushNamed(context, '/profile'),
                       ),
                       PopupMenuItem(
                         child: const Text('Logout',
@@ -344,21 +320,14 @@ class _HomePageState extends State<HomePage> {
               onSortChanged: (val) => setState(() => _sortOption = val!),
               minPrice: _minPrice,
               maxPrice: _maxPrice,
-              absoluteMin: _absoluteMin,
-              absoluteMax: _absoluteMax,
-              onPriceChanged: (values) => setState(() {
-                _minPrice = values.start;
-                _maxPrice = values.end;
-              }),
+              onMinPriceChanged: (val) => setState(() => _minPrice = val),
+              onMaxPriceChanged: (val) => setState(() => _maxPrice = val),
             ),
             _FeaturedBooksSection(
               products: _filteredProducts,
               loading: _loadingBooks,
               error: _fetchError,
               onRetry: _fetchProducts,
-              wishlistIds: _wishlistProductIds,
-              onWishlistToggle: (p) => _toggleWishlist(context, p),
-              onNavigatedBack: _fetchWishlist,
             ),
             _CategoriesSection(
               selectedCategory: _selectedCategory,
@@ -460,9 +429,8 @@ class _SearchFilterBar extends StatefulWidget {
   final ValueChanged<_SortOption?> onSortChanged;
   final double                     minPrice;
   final double                     maxPrice;
-  final double                     absoluteMin;
-  final double                     absoluteMax;
-  final ValueChanged<RangeValues>  onPriceChanged;
+  final ValueChanged<double>       onMinPriceChanged;
+  final ValueChanged<double>       onMaxPriceChanged;
 
   const _SearchFilterBar({
     super.key,
@@ -472,9 +440,8 @@ class _SearchFilterBar extends StatefulWidget {
     required this.onSortChanged,
     required this.minPrice,
     required this.maxPrice,
-    required this.absoluteMin,
-    required this.absoluteMax,
-    required this.onPriceChanged,
+    required this.onMinPriceChanged,
+    required this.onMaxPriceChanged,
   });
 
   @override
@@ -488,16 +455,10 @@ class _SearchFilterBarState extends State<_SearchFilterBar> {
   @override
   void initState() {
     super.initState();
-    _minController = TextEditingController(text: widget.minPrice.toStringAsFixed(0));
-    _maxController = TextEditingController(text: widget.maxPrice.toStringAsFixed(0));
-  }
-
-  @override
-  void didUpdateWidget(_SearchFilterBar old) {
-    super.didUpdateWidget(old);
-    if (old.absoluteMax != widget.absoluteMax) {
-      _maxController.text = widget.maxPrice.toStringAsFixed(0);
-    }
+    _minController = TextEditingController(
+        text: widget.minPrice == 0 ? '' : widget.minPrice.toStringAsFixed(0));
+    _maxController = TextEditingController(
+        text: widget.maxPrice == 9999 ? '' : widget.maxPrice.toStringAsFixed(0));
   }
 
   @override
@@ -507,28 +468,40 @@ class _SearchFilterBarState extends State<_SearchFilterBar> {
     super.dispose();
   }
 
-  void _apply() {
-    final min = double.tryParse(_minController.text) ?? widget.absoluteMin;
-    final max = double.tryParse(_maxController.text) ?? widget.absoluteMax;
-    final lo = min.clamp(widget.absoluteMin, widget.absoluteMax);
-    final hi = max.clamp(widget.absoluteMin, widget.absoluteMax);
-    widget.onPriceChanged(RangeValues(lo <= hi ? lo : hi, hi >= lo ? hi : lo));
+  void _onMinSubmitted(String val) {
+    final parsed = double.tryParse(val);
+    if (parsed != null && parsed >= 0) {
+      widget.onMinPriceChanged(parsed);
+    } else if (val.isEmpty) {
+      widget.onMinPriceChanged(0);
+    }
   }
 
-  InputDecoration _fieldDecoration(String hint) => InputDecoration(
-        hintText: hint,
-        hintStyle: const TextStyle(color: _medium),
-        prefixText: '\$',
-        prefixStyle: const TextStyle(color: _dark, fontWeight: FontWeight.w600),
-        filled: true,
-        fillColor: _offWhite,
-        contentPadding: const EdgeInsets.symmetric(vertical: 10, horizontal: 12),
-        border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(6), borderSide: BorderSide.none),
-        focusedBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(6),
-            borderSide: const BorderSide(color: _dark, width: 1.5)),
-      );
+  void _onMaxSubmitted(String val) {
+    final parsed = double.tryParse(val);
+    if (parsed != null && parsed >= 0) {
+      widget.onMaxPriceChanged(parsed);
+    } else if (val.isEmpty) {
+      widget.onMaxPriceChanged(9999);
+    }
+  }
+
+  InputDecoration _priceFieldDecoration(String hint) {
+    return InputDecoration(
+      hintText: hint,
+      hintStyle: const TextStyle(color: _medium, fontSize: 13),
+      prefixText: '\$ ',
+      prefixStyle: const TextStyle(color: _dark, fontSize: 13),
+      filled: true,
+      fillColor: _offWhite,
+      contentPadding: const EdgeInsets.symmetric(vertical: 10, horizontal: 12),
+      border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(6), borderSide: BorderSide.none),
+      focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(6),
+          borderSide: const BorderSide(color: _dark, width: 1.5)),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -538,6 +511,7 @@ class _SearchFilterBarState extends State<_SearchFilterBar> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          // ── Search bar ────────────────────────────────────────────────
           TextField(
             onChanged: widget.onSearchChanged,
             style: const TextStyle(color: _dark),
@@ -560,11 +534,15 @@ class _SearchFilterBarState extends State<_SearchFilterBar> {
                   borderSide: const BorderSide(color: _dark, width: 1.5)),
             ),
           ),
+
           const SizedBox(height: 20),
+
+          // ── Sort + price inputs row ───────────────────────────────────
           Wrap(
             spacing: 24, runSpacing: 16,
             crossAxisAlignment: WrapCrossAlignment.center,
             children: [
+              // Sort dropdown
               Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
@@ -587,11 +565,12 @@ class _SearchFilterBarState extends State<_SearchFilterBar> {
                   ),
                 ],
               ),
+
+              // Price range inputs
               Row(
                 mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
-                  const Text('Price range:',
+                  const Text('Price:',
                       style: TextStyle(color: _dark, fontWeight: FontWeight.w600, fontSize: 13)),
                   const SizedBox(width: 10),
                   SizedBox(
@@ -600,14 +579,14 @@ class _SearchFilterBarState extends State<_SearchFilterBar> {
                       controller: _minController,
                       keyboardType: TextInputType.number,
                       style: const TextStyle(color: _dark, fontSize: 13),
-                      decoration: _fieldDecoration('Min'),
-                      onSubmitted: (_) => _apply(),
-                      onEditingComplete: _apply,
+                      decoration: _priceFieldDecoration('Min'),
+                      onSubmitted: _onMinSubmitted,
+                      onEditingComplete: () => _onMinSubmitted(_minController.text),
                     ),
                   ),
                   const Padding(
                     padding: EdgeInsets.symmetric(horizontal: 8),
-                    child: Text('–', style: TextStyle(color: _dark, fontWeight: FontWeight.w600)),
+                    child: Text('–', style: TextStyle(color: _dark, fontWeight: FontWeight.w700)),
                   ),
                   SizedBox(
                     width: 90,
@@ -615,10 +594,26 @@ class _SearchFilterBarState extends State<_SearchFilterBar> {
                       controller: _maxController,
                       keyboardType: TextInputType.number,
                       style: const TextStyle(color: _dark, fontSize: 13),
-                      decoration: _fieldDecoration('Max'),
-                      onSubmitted: (_) => _apply(),
-                      onEditingComplete: _apply,
+                      decoration: _priceFieldDecoration('Max'),
+                      onSubmitted: _onMaxSubmitted,
+                      onEditingComplete: () => _onMaxSubmitted(_maxController.text),
                     ),
+                  ),
+                  const SizedBox(width: 10),
+                  // Apply button
+                  ElevatedButton(
+                    onPressed: () {
+                      _onMinSubmitted(_minController.text);
+                      _onMaxSubmitted(_maxController.text);
+                      FocusScope.of(context).unfocus();
+                    },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: _dark,
+                      foregroundColor: _offWhite,
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+                    ),
+                    child: const Text('Apply', style: TextStyle(fontSize: 13)),
                   ),
                 ],
               ),
@@ -632,22 +627,16 @@ class _SearchFilterBarState extends State<_SearchFilterBar> {
 
 // ─── Featured Books Section ───────────────────────────────────────────────────
 class _FeaturedBooksSection extends StatelessWidget {
-  final List<Product>          products;
-  final bool                   loading;
-  final String?                error;
-  final VoidCallback           onRetry;
-  final Set<int>               wishlistIds;
-  final void Function(Product) onWishlistToggle;
-  final VoidCallback           onNavigatedBack;
+  final List<Product> products;
+  final bool          loading;
+  final String?       error;
+  final VoidCallback  onRetry;
 
   const _FeaturedBooksSection({
     required this.products,
     required this.loading,
     required this.error,
     required this.onRetry,
-    required this.wishlistIds,
-    required this.onWishlistToggle,
-    required this.onNavigatedBack,
   });
 
   @override
@@ -657,7 +646,12 @@ class _FeaturedBooksSection extends StatelessWidget {
       padding: const EdgeInsets.symmetric(vertical: 64, horizontal: 48),
       child: Column(
         children: [
-
+          const Text('Featured Books',
+              style: TextStyle(color: _dark, fontSize: 32, fontWeight: FontWeight.w700, letterSpacing: 1)),
+          const SizedBox(height: 8),
+          const Text('Handpicked favourites from our collection',
+              style: TextStyle(color: _medium, fontSize: 15)),
+          const SizedBox(height: 40),
 
           if (loading)
             const Padding(
@@ -699,14 +693,22 @@ class _FeaturedBooksSection extends StatelessWidget {
               ),
             )
           else
-            Wrap(
-              spacing: 24, runSpacing: 24, alignment: WrapAlignment.center,
-              children: products.map((p) => _ProductCard(
-                product: p,
-                isInWishlist: wishlistIds.contains(int.parse(p.id)),
-                onWishlistToggle: () => onWishlistToggle(p),
-                onNavigatedBack: onNavigatedBack,
-              )).toList(),
+            LayoutBuilder(
+              builder: (context, constraints) {
+                const cardWidth   = 200.0;
+                const cardSpacing = 20.0;
+                final columns = ((constraints.maxWidth + cardSpacing) / (cardWidth + cardSpacing)).floor();
+                final effectiveColumns = columns.clamp(1, 6);
+                return Wrap(
+                  spacing: cardSpacing,
+                  runSpacing: cardSpacing,
+                  alignment: WrapAlignment.start,
+                  children: products.map((p) => SizedBox(
+                    width: (constraints.maxWidth - (effectiveColumns - 1) * cardSpacing) / effectiveColumns,
+                    child: _ProductCard(product: p),
+                  )).toList(),
+                );
+              },
             ),
         ],
       ),
@@ -714,33 +716,14 @@ class _FeaturedBooksSection extends StatelessWidget {
   }
 }
 
-// ─── Product Card with real book cover ───────────────────────────────────────
+// ─── Product Card ─────────────────────────────────────────────────────────────
 class _ProductCard extends StatelessWidget {
-  final Product      product;
-  final bool         isInWishlist;
-  final VoidCallback onWishlistToggle;
-  final VoidCallback onNavigatedBack;
-
-  const _ProductCard({
-    required this.product,
-    required this.isInWishlist,
-    required this.onWishlistToggle,
-    required this.onNavigatedBack,
-  });
+  final Product product;
+  const _ProductCard({required this.product});
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: () {
-        Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (context) => ProductPage(product: product),
-          ),
-        ).then((_) => onNavigatedBack());
-      },
-      child: Container(
-        width: 220,
+    return Container(
       decoration: BoxDecoration(
         color: _offWhite,
         borderRadius: BorderRadius.circular(8),
@@ -749,34 +732,31 @@ class _ProductCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // ── Book cover with real image from Open Library ──────────────
           Stack(
             children: [
               ClipRRect(
                 borderRadius: const BorderRadius.vertical(top: Radius.circular(7)),
                 child: Image.network(
                   _coverUrl(product.name),
-                    height: 180,
-                    width: double.infinity,
-                    fit: BoxFit.cover,
-                    cacheWidth: 220,
-                    cacheHeight: 180,
-                    filterQuality: FilterQuality.low,
-                  // While loading show a shimmer-like placeholder
+                  height: 200,
+                  width: double.infinity,
+                  fit: BoxFit.cover,
+                  cacheWidth: 300,
+                  cacheHeight: 200,
+                  filterQuality: FilterQuality.low,
                   loadingBuilder: (context, child, progress) {
                     if (progress == null) return child;
                     return Container(
-                      height: 180,
+                      height: 200,
                       color: _taupe,
                       child: const Center(
                         child: CircularProgressIndicator(color: _offWhite, strokeWidth: 2),
                       ),
                     );
                   },
-                  // If image fails show the book icon fallback
                   errorBuilder: (context, error, stackTrace) {
                     return Container(
-                      height: 180,
+                      height: 200,
                       color: _taupe,
                       child: const Center(
                         child: Icon(Icons.menu_book, color: _offWhite, size: 64),
@@ -785,55 +765,55 @@ class _ProductCard extends StatelessWidget {
                   },
                 ),
               ),
-              // Wishlist heart button
               Positioned(
                 top: 8, right: 8,
                 child: GestureDetector(
-                  onTap: onWishlistToggle,
+                  onTap: () => addToWishlist(context, product),
                   child: Container(
                     padding: const EdgeInsets.all(6),
                     decoration: BoxDecoration(
                       color: _offWhite.withValues(alpha: 0.85),
                       shape: BoxShape.circle,
                     ),
-                    child: Icon(
-                      isInWishlist ? Icons.favorite : Icons.favorite_border,
-                      color: Colors.red,
-                      size: 18,
-                    ),
+                    child: const Icon(Icons.favorite_border, color: Colors.red, size: 18),
                   ),
                 ),
               ),
             ],
           ),
-
           Padding(
             padding: const EdgeInsets.all(14),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  product.name,
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    color: _categoryColors[product.category],
-                    fontSize: 14, fontWeight: FontWeight.w700, height: 1.3,
+                SizedBox(
+                  height: 40,
+                  child: Text(
+                    product.name,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      color: _categoryColors[product.category],
+                      fontSize: 13, fontWeight: FontWeight.w700, height: 1.3,
+                    ),
                   ),
                 ),
                 const SizedBox(height: 6),
-                Text(
-                  product.description,
-                  maxLines: 3,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(color: _medium, fontSize: 12, height: 1.4),
+                SizedBox(
+                  height: 54,
+                  child: Text(
+                    product.description,
+                    maxLines: 3,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(color: _medium, fontSize: 11, height: 1.4),
+                  ),
                 ),
                 const SizedBox(height: 12),
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     Text('\$${product.price.toStringAsFixed(2)}',
-                        style: const TextStyle(color: _dark, fontSize: 16, fontWeight: FontWeight.w800)),
+                        style: const TextStyle(color: _dark, fontSize: 15, fontWeight: FontWeight.w800)),
                     Text(
                       product.stockQuantity > 0 ? 'In stock' : 'Out of stock',
                       style: TextStyle(
@@ -885,7 +865,7 @@ class _ProductCard extends StatelessWidget {
           ),
         ],
       ),
-    ));
+    );
   }
 }
 
