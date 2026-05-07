@@ -25,7 +25,6 @@ const Map<String, String> _hardcodedCovers = {
       'https://covers.openlibrary.org/b/isbn/9780852294239-M.jpg',
 };
 
-// ─── Cover URL: use hardcoded if available, otherwise Open Library by title ───
 String _coverUrl(String title) {
   if (_hardcodedCovers.containsKey(title)) {
     return _hardcodedCovers[title]!;
@@ -34,7 +33,6 @@ String _coverUrl(String title) {
   return 'https://covers.openlibrary.org/b/title/$encoded-M.jpg';
 }
 
-// ─── Category number → DeweyCategory ─────────────────────────────────────────
 DeweyCategory _categoryFromInt(int? cat) {
   switch (cat) {
     case 1:  return DeweyCategory.generalWorks;
@@ -119,7 +117,6 @@ Future<void> addToWishlist(BuildContext context, Product product) async {
   }
 }
 
-// ─── Sort options ─────────────────────────────────────────────────────────────
 enum _SortOption { none, priceLowHigh, priceHighLow }
 
 // ─── HomePage ─────────────────────────────────────────────────────────────────
@@ -138,8 +135,7 @@ class _HomePageState extends State<HomePage> {
   String            _searchQuery      = '';
   DeweyCategory?    _selectedCategory;
   double            _minPrice         = 0;
-  double            _maxPrice         = 100;
-  final double      _absoluteMin      = 0;
+  double            _maxPrice         = 9999;
   _SortOption       _sortOption       = _SortOption.none;
   final ScrollController _scrollController = ScrollController();
   final GlobalKey        _searchKey        = GlobalKey();
@@ -179,12 +175,6 @@ class _HomePageState extends State<HomePage> {
               category:      _categoryFromInt(map['category'] as int?),
             );
           }).toList();
-          if (_allProducts.isNotEmpty) {
-            final maxPrice = _allProducts
-                .map((p) => p.price)
-                .reduce((a, b) => a > b ? a : b);
-            _maxPrice = maxPrice.ceilToDouble();
-          }
           _loadingBooks = false;
         });
       } else {
@@ -330,12 +320,8 @@ class _HomePageState extends State<HomePage> {
               onSortChanged: (val) => setState(() => _sortOption = val!),
               minPrice: _minPrice,
               maxPrice: _maxPrice,
-              absoluteMin: _absoluteMin,
-              absoluteMax: _maxPrice,
-              onPriceChanged: (values) => setState(() {
-                _minPrice = values.start;
-                _maxPrice = values.end;
-              }),
+              onMinPriceChanged: (val) => setState(() => _minPrice = val),
+              onMaxPriceChanged: (val) => setState(() => _maxPrice = val),
             ),
             _FeaturedBooksSection(
               products: _filteredProducts,
@@ -436,16 +422,15 @@ class _FeaturesSection extends StatelessWidget {
 }
 
 // ─── Search + Filter Bar ──────────────────────────────────────────────────────
-class _SearchFilterBar extends StatelessWidget {
+class _SearchFilterBar extends StatefulWidget {
   final String                     searchQuery;
   final ValueChanged<String>       onSearchChanged;
   final _SortOption                sortOption;
   final ValueChanged<_SortOption?> onSortChanged;
   final double                     minPrice;
   final double                     maxPrice;
-  final double                     absoluteMin;
-  final double                     absoluteMax;
-  final ValueChanged<RangeValues>  onPriceChanged;
+  final ValueChanged<double>       onMinPriceChanged;
+  final ValueChanged<double>       onMaxPriceChanged;
 
   const _SearchFilterBar({
     super.key,
@@ -455,10 +440,68 @@ class _SearchFilterBar extends StatelessWidget {
     required this.onSortChanged,
     required this.minPrice,
     required this.maxPrice,
-    required this.absoluteMin,
-    required this.absoluteMax,
-    required this.onPriceChanged,
+    required this.onMinPriceChanged,
+    required this.onMaxPriceChanged,
   });
+
+  @override
+  State<_SearchFilterBar> createState() => _SearchFilterBarState();
+}
+
+class _SearchFilterBarState extends State<_SearchFilterBar> {
+  late TextEditingController _minController;
+  late TextEditingController _maxController;
+
+  @override
+  void initState() {
+    super.initState();
+    _minController = TextEditingController(
+        text: widget.minPrice == 0 ? '' : widget.minPrice.toStringAsFixed(0));
+    _maxController = TextEditingController(
+        text: widget.maxPrice == 9999 ? '' : widget.maxPrice.toStringAsFixed(0));
+  }
+
+  @override
+  void dispose() {
+    _minController.dispose();
+    _maxController.dispose();
+    super.dispose();
+  }
+
+  void _onMinSubmitted(String val) {
+    final parsed = double.tryParse(val);
+    if (parsed != null && parsed >= 0) {
+      widget.onMinPriceChanged(parsed);
+    } else if (val.isEmpty) {
+      widget.onMinPriceChanged(0);
+    }
+  }
+
+  void _onMaxSubmitted(String val) {
+    final parsed = double.tryParse(val);
+    if (parsed != null && parsed >= 0) {
+      widget.onMaxPriceChanged(parsed);
+    } else if (val.isEmpty) {
+      widget.onMaxPriceChanged(9999);
+    }
+  }
+
+  InputDecoration _priceFieldDecoration(String hint) {
+    return InputDecoration(
+      hintText: hint,
+      hintStyle: const TextStyle(color: _medium, fontSize: 13),
+      prefixText: '\$ ',
+      prefixStyle: const TextStyle(color: _dark, fontSize: 13),
+      filled: true,
+      fillColor: _offWhite,
+      contentPadding: const EdgeInsets.symmetric(vertical: 10, horizontal: 12),
+      border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(6), borderSide: BorderSide.none),
+      focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(6),
+          borderSide: const BorderSide(color: _dark, width: 1.5)),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -468,17 +511,18 @@ class _SearchFilterBar extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          // ── Search bar ────────────────────────────────────────────────
           TextField(
-            onChanged: onSearchChanged,
+            onChanged: widget.onSearchChanged,
             style: const TextStyle(color: _dark),
             decoration: InputDecoration(
               hintText: 'Search by title or description…',
               hintStyle: const TextStyle(color: _medium),
               prefixIcon: const Icon(Icons.search, color: _medium),
-              suffixIcon: searchQuery.isNotEmpty
+              suffixIcon: widget.searchQuery.isNotEmpty
                   ? IconButton(
                       icon: const Icon(Icons.clear, color: _medium),
-                      onPressed: () => onSearchChanged(''))
+                      onPressed: () => widget.onSearchChanged(''))
                   : null,
               filled: true,
               fillColor: _offWhite,
@@ -490,11 +534,15 @@ class _SearchFilterBar extends StatelessWidget {
                   borderSide: const BorderSide(color: _dark, width: 1.5)),
             ),
           ),
+
           const SizedBox(height: 20),
+
+          // ── Sort + price inputs row ───────────────────────────────────
           Wrap(
             spacing: 24, runSpacing: 16,
             crossAxisAlignment: WrapCrossAlignment.center,
             children: [
+              // Sort dropdown
               Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
@@ -503,7 +551,7 @@ class _SearchFilterBar extends StatelessWidget {
                   const SizedBox(width: 10),
                   DropdownButtonHideUnderline(
                     child: DropdownButton<_SortOption>(
-                      value: sortOption,
+                      value: widget.sortOption,
                       dropdownColor: _offWhite,
                       style: const TextStyle(color: _dark, fontSize: 13),
                       borderRadius: BorderRadius.circular(6),
@@ -512,37 +560,62 @@ class _SearchFilterBar extends StatelessWidget {
                         DropdownMenuItem(value: _SortOption.priceLowHigh, child: Text('Low → High')),
                         DropdownMenuItem(value: _SortOption.priceHighLow, child: Text('High → Low')),
                       ],
-                      onChanged: onSortChanged,
+                      onChanged: widget.onSortChanged,
                     ),
                   ),
                 ],
               ),
-              SizedBox(
-                width: 340,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Price range:  \$${minPrice.toStringAsFixed(0)} – \$${maxPrice.toStringAsFixed(0)}',
-                      style: const TextStyle(color: _dark, fontWeight: FontWeight.w600, fontSize: 13),
+
+              // Price range inputs
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Text('Price:',
+                      style: TextStyle(color: _dark, fontWeight: FontWeight.w600, fontSize: 13)),
+                  const SizedBox(width: 10),
+                  SizedBox(
+                    width: 90,
+                    child: TextField(
+                      controller: _minController,
+                      keyboardType: TextInputType.number,
+                      style: const TextStyle(color: _dark, fontSize: 13),
+                      decoration: _priceFieldDecoration('Min'),
+                      onSubmitted: _onMinSubmitted,
+                      onEditingComplete: () => _onMinSubmitted(_minController.text),
                     ),
-                    SliderTheme(
-                      data: SliderTheme.of(context).copyWith(
-                        activeTrackColor: _dark,
-                        inactiveTrackColor: _taupe,
-                        thumbColor: _dark,
-                        overlayColor: _dark.withValues(alpha: 0.15),
-                        rangeThumbShape: const RoundRangeSliderThumbShape(enabledThumbRadius: 7),
-                      ),
-                      child: RangeSlider(
-                        min: absoluteMin,
-                        max: absoluteMax,
-                        values: RangeValues(minPrice, maxPrice),
-                        onChanged: onPriceChanged,
-                      ),
+                  ),
+                  const Padding(
+                    padding: EdgeInsets.symmetric(horizontal: 8),
+                    child: Text('–', style: TextStyle(color: _dark, fontWeight: FontWeight.w700)),
+                  ),
+                  SizedBox(
+                    width: 90,
+                    child: TextField(
+                      controller: _maxController,
+                      keyboardType: TextInputType.number,
+                      style: const TextStyle(color: _dark, fontSize: 13),
+                      decoration: _priceFieldDecoration('Max'),
+                      onSubmitted: _onMaxSubmitted,
+                      onEditingComplete: () => _onMaxSubmitted(_maxController.text),
                     ),
-                  ],
-                ),
+                  ),
+                  const SizedBox(width: 10),
+                  // Apply button
+                  ElevatedButton(
+                    onPressed: () {
+                      _onMinSubmitted(_minController.text);
+                      _onMaxSubmitted(_maxController.text);
+                      FocusScope.of(context).unfocus();
+                    },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: _dark,
+                      foregroundColor: _offWhite,
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+                    ),
+                    child: const Text('Apply', style: TextStyle(fontSize: 13)),
+                  ),
+                ],
               ),
             ],
           ),
@@ -620,10 +693,9 @@ class _FeaturedBooksSection extends StatelessWidget {
               ),
             )
           else
-            // ── Responsive grid: fixed card width, auto columns ───────────
             LayoutBuilder(
               builder: (context, constraints) {
-                const cardWidth  = 200.0;
+                const cardWidth   = 200.0;
                 const cardSpacing = 20.0;
                 final columns = ((constraints.maxWidth + cardSpacing) / (cardWidth + cardSpacing)).floor();
                 final effectiveColumns = columns.clamp(1, 6);
@@ -660,7 +732,6 @@ class _ProductCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // ── Book cover ────────────────────────────────────────────────
           Stack(
             children: [
               ClipRRect(
@@ -694,7 +765,6 @@ class _ProductCard extends StatelessWidget {
                   },
                 ),
               ),
-              // Wishlist heart
               Positioned(
                 top: 8, right: 8,
                 child: GestureDetector(
@@ -711,14 +781,11 @@ class _ProductCard extends StatelessWidget {
               ),
             ],
           ),
-
-          // ── Book info ─────────────────────────────────────────────────
           Padding(
             padding: const EdgeInsets.all(14),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Fixed height title area so all cards align
                 SizedBox(
                   height: 40,
                   child: Text(
@@ -732,7 +799,6 @@ class _ProductCard extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(height: 6),
-                // Fixed height description area
                 SizedBox(
                   height: 54,
                   child: Text(
