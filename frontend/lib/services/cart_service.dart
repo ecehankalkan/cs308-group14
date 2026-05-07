@@ -44,11 +44,19 @@ class CartService {
   static const String _cookieKey = 'sessionid_cookie';
 
   // We keep track of items locally so we can find cartItemId by productId easily
-  List<CartItem> _currentItems = [];
+  static List<CartItem> _currentItems = [];
   List<CartItem> get currentItems => _currentItems;
 
   // Used to prevent race conditions when navigating to the cart immediately after adding an item
   static Future<void> _pendingAdd = Future.value();
+
+  bool canAddMore(String productId, int quantityToAdd) {
+    final existingItemIndex = _currentItems.indexWhere((item) => item.product.id == productId);
+    if (existingItemIndex != -1) {
+      return _currentItems[existingItemIndex].quantity + quantityToAdd <= _currentItems[existingItemIndex].product.stockQuantity;
+    }
+    return true;
+  }
 
   Future<void> waitForPending() async {
     try { await _pendingAdd; } catch (_) {}
@@ -185,7 +193,11 @@ class CartService {
       }
       final existingItemIndex = _currentItems.indexWhere((item) => item.product.id == productId);
       if (existingItemIndex != -1) {
-        await updateQuantity(productId: productId, requestedQuantity: _currentItems[existingItemIndex].quantity + quantityToAdd);
+        final currentItem = _currentItems[existingItemIndex];
+        if (currentItem.quantity + quantityToAdd > currentItem.product.stockQuantity) {
+          throw Exception('Stock limit reached');
+        }
+        await updateQuantity(productId: productId, requestedQuantity: currentItem.quantity + quantityToAdd);
       } else {
         await updateQuantity(productId: productId, requestedQuantity: quantityToAdd);
       }

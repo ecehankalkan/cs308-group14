@@ -194,6 +194,16 @@ class _ProductPageState extends State<ProductPage> {
 
     final quantityToAdd = _selectedQuantity;
 
+    if (!_cartService.canAddMore(product.id, quantityToAdd)) {
+      ScaffoldMessenger.of(context).hideCurrentSnackBar();
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+        content: Text('Max stock reached for this item.'),
+        backgroundColor: Colors.orange,
+        duration: Duration(seconds: 2),
+      ));
+      return;
+    }
+
     ScaffoldMessenger.of(context).hideCurrentSnackBar();
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(

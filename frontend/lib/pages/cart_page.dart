@@ -175,6 +175,12 @@ class _CartPageState extends State<CartPage> {
     await _syncCartWithBackend();
     if (!mounted) return;
 
+    final overstockedItems = _items.where((item) => item.quantity > item.product.stockQuantity).toList();
+    if (overstockedItems.isNotEmpty) {
+      _showCenteredRedSnackBar('Some items exceed available stock.\nPlease reduce their quantity to continue.');
+      return;
+    }
+
     Navigator.of(context).push(
       MaterialPageRoute(
         builder: (context) => PaymentPage(totalAmount: _cartTotal),

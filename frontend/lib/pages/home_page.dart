@@ -296,7 +296,7 @@ class _HomePageState extends State<HomePage> {
           IconButton(
             icon: const Icon(Icons.shopping_cart_outlined, color: _offWhite),
             tooltip: 'Cart',
-            onPressed: () => Navigator.pushNamed(context, '/cart'),
+            onPressed: () => Navigator.pushNamed(context, '/cart').then((_) => _fetchProducts()),
           ),
           StreamBuilder<User?>(
             stream: FirebaseAuth.instance.authStateChanges(),
@@ -760,6 +760,7 @@ class _FeaturedBooksSection extends StatelessWidget {
                       product: p,
                       isWishlisted: wishlistedIds.contains(p.id),
                       onToggleWishlist: () => onToggleWishlist(p),
+                      onReturn: onRetry,
                     ),
                   )).toList(),
                 );
@@ -776,11 +777,13 @@ class _ProductCard extends StatelessWidget {
   final Product product;
   final bool isWishlisted;
   final VoidCallback onToggleWishlist;
+  final VoidCallback onReturn;
 
   const _ProductCard({
     required this.product,
     required this.isWishlisted,
     required this.onToggleWishlist,
+    required this.onReturn,
   });
 
   @override
@@ -791,7 +794,7 @@ class _ProductCard extends StatelessWidget {
         MaterialPageRoute(
           builder: (context) => ProductPage(product: product),
         ),
-      ),
+      ).then((_) => onReturn()),
       borderRadius: BorderRadius.circular(8),
       child: Container(
       decoration: BoxDecoration(
@@ -917,6 +920,16 @@ class _ProductCard extends StatelessWidget {
                   child: ElevatedButton(
                     onPressed: product.stockQuantity > 0
                         ? () {
+                            if (!CartService().canAddMore(product.id, 1)) {
+                              ScaffoldMessenger.of(context).hideCurrentSnackBar();
+                              ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+                                content: Text('Max stock reached for this item.'),
+                                backgroundColor: Colors.orange,
+                                duration: Duration(seconds: 2),
+                              ));
+                              return;
+                            }
+
                             // Instant Feedback
                             ScaffoldMessenger.of(context).hideCurrentSnackBar();
                             ScaffoldMessenger.of(context).showSnackBar(SnackBar(
@@ -926,9 +939,7 @@ class _ProductCard extends StatelessWidget {
                             ));
                             
                             // Background API call
-                            CartService().updateQuantity(
-                                productId: product.id, requestedQuantity: 1
-                            ).catchError((e) {
+                            CartService().addOrIncrementItem(product.id).catchError((e) {
                                 if (context.mounted) {
                                   ScaffoldMessenger.of(context).showSnackBar(SnackBar(
                                     content: Text('Failed to add ${product.name}'),
