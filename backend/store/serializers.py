@@ -41,12 +41,26 @@ class ProductSerializer(serializers.ModelSerializer):
         return obj.stock_quantity > 0
 
     def get_average_rating(self, obj):
+        # Use prefetched reviews if available (O(1) memory check instead of DB query)
+        if hasattr(obj, '_prefetched_objects_cache') and 'reviews' in obj._prefetched_objects_cache:
+            valid_reviews = [r for r in obj.reviews.all() if r.rating is not None and r.status != 'rejected']
+            if valid_reviews:
+                return round(sum(r.rating for r in valid_reviews) / len(valid_reviews), 1)
+            return None
+
+        # Fallback to DB query if not prefetched
         from django.db.models import Avg
         result = obj.reviews.filter(rating__isnull=False).exclude(status='rejected').aggregate(avg=Avg('rating'))
         avg = result['avg']
         return round(avg, 1) if avg is not None else None
 
     def get_rating_count(self, obj):
+        # Use prefetched reviews if available
+        if hasattr(obj, '_prefetched_objects_cache') and 'reviews' in obj._prefetched_objects_cache:
+            valid_reviews = [r for r in obj.reviews.all() if r.rating is not None and r.status != 'rejected']
+            return len(valid_reviews)
+
+        # Fallback to DB query
         return obj.reviews.filter(rating__isnull=False).exclude(status='rejected').count()
 
 

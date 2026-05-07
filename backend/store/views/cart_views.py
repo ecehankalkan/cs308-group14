@@ -12,7 +12,7 @@ class CartView(generics.ListCreateAPIView):
     permission_classes = [permissions.IsAuthenticated]
 
     def get_queryset(self):
-        return Cart.objects.filter(customer=self.request.user)
+        return Cart.objects.filter(customer=self.request.user).select_related('product').prefetch_related('product__reviews')
 
     def create(self, request, *args, **kwargs):
         product_id = request.data.get('product_id')

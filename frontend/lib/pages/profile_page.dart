@@ -98,10 +98,18 @@ class _ProfilePageState extends State<ProfilePage> with WidgetsBindingObserver {
   }
 
   Future<void> _loadData() async {
-    final profile = await _userService.fetchProfile();
-    final orders = await _userService.fetchOrderHistory();
-    final addresses = await PaymentService.fetchAddresses();
-    final cards = await PaymentService.fetchPaymentCards();
+    final results = await Future.wait([
+      _userService.fetchProfile(),
+      _userService.fetchOrderHistory(),
+      PaymentService.fetchAddresses(),
+      PaymentService.fetchPaymentCards(),
+    ]);
+
+    final profile = results[0] as Map<String, dynamic>?;
+    final orders = results[1] as List<Order>;
+    final addresses = results[2] as List<Map<String, dynamic>>;
+    final cards = results[3] as List<Map<String, dynamic>>;
+
     if (!mounted) return;
     setState(() {
       _taxId = profile?['tax_id'] as String?;

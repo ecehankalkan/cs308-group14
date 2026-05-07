@@ -32,7 +32,7 @@ class ProductListView(generics.ListCreateAPIView):
         return [permissions.AllowAny()]
 
     def get_queryset(self):
-        qs       = Product.objects.all()
+        qs       = Product.objects.prefetch_related('reviews').all()
         search   = self.request.query_params.get('search')
         category = self.request.query_params.get('category')
         sort     = self.request.query_params.get('sort')

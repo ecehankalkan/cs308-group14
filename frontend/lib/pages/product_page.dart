@@ -248,40 +248,38 @@ class _ProductPageState extends State<ProductPage> {
       _showAuthDialog();
       return;
     }
+
     final productId = int.parse(_displayProduct.id);
+    final wasInWishlist = _inWishlist;
+
+    // OPTIMISTIC UI
+    setState(() => _inWishlist = !wasInWishlist);
+    
+    ScaffoldMessenger.of(context).hideCurrentSnackBar();
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+      content: Text(!wasInWishlist ? '${_displayProduct.name} added to wishlist!' : '${_displayProduct.name} removed from wishlist'),
+      duration: const Duration(seconds: 1),
+    ));
+
     try {
-      if (_inWishlist) {
-        final response = await http.delete(
+      if (wasInWishlist) {
+        await http.delete(
           Uri.parse('$_baseUrl/wishlist/$productId/'),
           headers: {'Authorization': 'Bearer $token'},
         );
-        if (response.statusCode == 204 && mounted) {
-          setState(() => _inWishlist = false);
-          ScaffoldMessenger.of(context).hideCurrentSnackBar();
-          ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-            content: Text('${_displayProduct.name} removed from wishlist'),
-            duration: const Duration(seconds: 2),
-          ));
-        }
       } else {
-        final response = await http.post(
+        await http.post(
           Uri.parse('$_baseUrl/wishlist/'),
           headers: {'Authorization': 'Bearer $token', 'Content-Type': 'application/json'},
           body: jsonEncode({'product_id': productId}),
         );
-        if (response.statusCode == 201 && mounted) {
-          setState(() => _inWishlist = true);
-          ScaffoldMessenger.of(context).hideCurrentSnackBar();
-          ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-            content: Text('${_displayProduct.name} added to wishlist!'),
-            duration: const Duration(seconds: 2),
-          ));
-        }
       }
     } catch (_) {
+      // REVERT ON FAILURE
       if (mounted) {
+        setState(() => _inWishlist = wasInWishlist);
         ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-          content: Text('Could not connect to server.'),
+          content: Text('Failed to update wishlist'),
           backgroundColor: Colors.red,
         ));
       }

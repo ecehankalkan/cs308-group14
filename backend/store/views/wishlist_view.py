@@ -17,7 +17,7 @@ class WishlistView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
-        items = Wishlist.objects.filter(customer=request.user).select_related('product')
+        items = Wishlist.objects.filter(customer=request.user).select_related('product').prefetch_related('product__reviews')
         serializer = WishlistSerializer(items, many=True)
         return Response(serializer.data)
 
