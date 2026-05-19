@@ -6,6 +6,7 @@ import 'pages/signup_page.dart';
 import 'pages/cart_page.dart';
 import 'pages/profile_page.dart';
 import 'pages/sales_dashboard_page.dart';
+import 'pages/product_manager_dashboard_page.dart';
 import 'pages/wishlist_page.dart';
 
 void main() async {
@@ -41,6 +42,7 @@ class MyApp extends StatelessWidget {
         '/cart': (context) => const CartPage(),
         '/profile': (context) => const ProfilePage(),
         '/sales-dashboard': (context) => const SalesDashboardPage(),
+        '/product-dashboard': (context) => const ProductManagerDashboardPage(),
         '/wishlist': (context) => const WishlistPage(),
       },
     );
