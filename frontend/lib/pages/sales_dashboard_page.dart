@@ -714,93 +714,64 @@ class _RevenueTabState extends State<_RevenueTab> {
             ),
             const SizedBox(height: 28),
 
-            // ── Chart ────────────────────────────────────────────────────
-            Text(
-              'Revenue per ${_granularity[0].toUpperCase()}${_granularity.substring(1)} Period',
-              style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: 16),
-            if (keys.isEmpty)
-              const Center(
-                child: Padding(
-                  padding: EdgeInsets.symmetric(vertical: 48),
-                  child: Text('No orders in the selected range.'),
-                ),
-              )
-            else
-              SizedBox(
-                height: 300,
-                child: BarChart(
-                  BarChartData(
-                    maxY: maxY,
-                    barTouchData: BarTouchData(
-                      touchTooltipData: BarTouchTooltipData(
-                        getTooltipColor: (_) => Colors.blueGrey.shade800,
-                        getTooltipItem: (group, _, rod, _) => BarTooltipItem(
-                          '${_label(keys[group.x]).replaceAll('\n', ' ')}'
-                          '\n$_symbol${rod.toY.toStringAsFixed(2)}',
-                          const TextStyle(color: Colors.white, fontWeight: FontWeight.w600, fontSize: 13),
-                        ),
-                      ),
+            // ── Charts: Revenue + Profit side by side ─────────────────────
+            LayoutBuilder(
+              builder: (context, constraints) {
+                final isWide = constraints.maxWidth >= 720;
+                final revenueChart = _ChartCard(
+                  title: 'Revenue per ${_granularity[0].toUpperCase()}${_granularity.substring(1)} Period',
+                  keys: keys,
+                  values: values,
+                  maxY: maxY,
+                  barWidth: barWidth,
+                  symbol: _symbol,
+                  barColor: theme.colorScheme.primary,
+                  labelOf: _label,
+                );
+                // Profit is mocked at 50% of revenue.
+                final profitValues = values.map((v) => v * 0.5).toList();
+                final profitMaxY = maxY * 0.5;
+                final profitChart = _ChartCard(
+                  title: 'Profit per ${_granularity[0].toUpperCase()}${_granularity.substring(1)} Period (50% of revenue)',
+                  keys: keys,
+                  values: profitValues,
+                  maxY: profitMaxY,
+                  barWidth: barWidth,
+                  symbol: _symbol,
+                  barColor: Colors.green.shade700,
+                  labelOf: _label,
+                );
+
+                if (keys.isEmpty) {
+                  return const Center(
+                    child: Padding(
+                      padding: EdgeInsets.symmetric(vertical: 48),
+                      child: Text('No orders in the selected range.'),
                     ),
-                    titlesData: FlTitlesData(
-                      rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-                      topTitles:   const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-                      bottomTitles: AxisTitles(
-                        sideTitles: SideTitles(
-                          showTitles: true,
-                          reservedSize: 36,
-                          getTitlesWidget: (x, _) {
-                            final i = x.toInt();
-                            if (i < 0 || i >= keys.length) return const SizedBox();
-                            if (keys.length > 15 && i % ((keys.length / 7).ceil()) != 0) {
-                              return const SizedBox();
-                            }
-                            return Padding(
-                              padding: const EdgeInsets.only(top: 6),
-                              child: Text(
-                                _label(keys[i]),
-                                style: const TextStyle(fontSize: 10),
-                                textAlign: TextAlign.center,
-                              ),
-                            );
-                          },
-                        ),
-                      ),
-                      leftTitles: AxisTitles(
-                        sideTitles: SideTitles(
-                          showTitles: true,
-                          reservedSize: 64,
-                          getTitlesWidget: (y, _) => Text(
-                            '$_symbol${y >= 1000 ? '${(y / 1000).toStringAsFixed(1)}k' : y.toStringAsFixed(0)}',
-                            style: const TextStyle(fontSize: 10),
-                          ),
-                        ),
-                      ),
-                    ),
-                    gridData: FlGridData(
-                      drawVerticalLine: false,
-                      getDrawingHorizontalLine: (_) =>
-                          FlLine(color: Colors.grey.shade200, strokeWidth: 1),
-                    ),
-                    borderData: FlBorderData(show: false),
-                    barGroups: [
-                      for (int i = 0; i < keys.length; i++)
-                        BarChartGroupData(
-                          x: i,
-                          barRods: [
-                            BarChartRodData(
-                              toY: values[i],
-                              color: theme.colorScheme.primary,
-                              width: barWidth,
-                              borderRadius: const BorderRadius.vertical(top: Radius.circular(4)),
-                            ),
-                          ],
-                        ),
+                  );
+                }
+
+                if (isWide) {
+                  return Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Expanded(child: revenueChart),
+                      const SizedBox(width: 16),
+                      Expanded(child: profitChart),
                     ],
-                  ),
-                ),
-              ),
+                  );
+                }
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    revenueChart,
+                    const SizedBox(height: 16),
+                    profitChart,
+                  ],
+                );
+              },
+            ),
+                  
             const SizedBox(height: 36),
 
             // ── Breakdown rows ───────────────────────────────────────────
@@ -1198,6 +1169,115 @@ class _StatCard extends StatelessWidget {
           ),
         ),
       ),
+    );
+  }
+}
+
+// ── Reusable chart card (used by Revenue tab for both Revenue and Profit) ────
+
+class _ChartCard extends StatelessWidget {
+  final String title;
+  final List<String> keys;
+  final List<double> values;
+  final double maxY;
+  final double barWidth;
+  final String symbol;
+  final Color barColor;
+  final String Function(String) labelOf;
+
+  const _ChartCard({
+    required this.title,
+    required this.keys,
+    required this.values,
+    required this.maxY,
+    required this.barWidth,
+    required this.symbol,
+    required this.barColor,
+    required this.labelOf,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(title,
+            style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
+        const SizedBox(height: 12),
+        SizedBox(
+          height: 300,
+          child: BarChart(
+            BarChartData(
+              maxY: maxY,
+              barTouchData: BarTouchData(
+                touchTooltipData: BarTouchTooltipData(
+                  getTooltipColor: (_) => Colors.blueGrey.shade800,
+                  getTooltipItem: (group, _, rod, _) => BarTooltipItem(
+                    '${labelOf(keys[group.x]).replaceAll('\n', ' ')}'
+                    '\n$symbol${rod.toY.toStringAsFixed(2)}',
+                    const TextStyle(color: Colors.white, fontWeight: FontWeight.w600, fontSize: 13),
+                  ),
+                ),
+              ),
+              titlesData: FlTitlesData(
+                rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                topTitles:   const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                bottomTitles: AxisTitles(
+                  sideTitles: SideTitles(
+                    showTitles: true,
+                    reservedSize: 36,
+                    getTitlesWidget: (x, _) {
+                      final i = x.toInt();
+                      if (i < 0 || i >= keys.length) return const SizedBox();
+                      if (keys.length > 15 && i % ((keys.length / 7).ceil()) != 0) {
+                        return const SizedBox();
+                      }
+                      return Padding(
+                        padding: const EdgeInsets.only(top: 6),
+                        child: Text(
+                          labelOf(keys[i]),
+                          style: const TextStyle(fontSize: 10),
+                          textAlign: TextAlign.center,
+                        ),
+                      );
+                    },
+                  ),
+                ),
+                leftTitles: AxisTitles(
+                  sideTitles: SideTitles(
+                    showTitles: true,
+                    reservedSize: 64,
+                    getTitlesWidget: (y, _) => Text(
+                      '$symbol${y >= 1000 ? '${(y / 1000).toStringAsFixed(1)}k' : y.toStringAsFixed(0)}',
+                      style: const TextStyle(fontSize: 10),
+                    ),
+                  ),
+                ),
+              ),
+              gridData: FlGridData(
+                drawVerticalLine: false,
+                getDrawingHorizontalLine: (_) =>
+                    FlLine(color: Colors.grey.shade200, strokeWidth: 1),
+              ),
+              borderData: FlBorderData(show: false),
+              barGroups: [
+                for (int i = 0; i < keys.length; i++)
+                  BarChartGroupData(
+                    x: i,
+                    barRods: [
+                      BarChartRodData(
+                        toY: values[i],
+                        color: barColor,
+                        width: barWidth,
+                        borderRadius: const BorderRadius.vertical(top: Radius.circular(4)),
+                      ),
+                    ],
+                  ),
+              ],
+            ),
+          ),
+        ),
+      ],
     );
   }
 }
