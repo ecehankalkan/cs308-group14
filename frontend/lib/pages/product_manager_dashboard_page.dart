@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'comment_approval_page.dart';
 
 class ProductManagerDashboardPage extends StatelessWidget {
   const ProductManagerDashboardPage({super.key});
@@ -34,26 +35,29 @@ class ProductManagerDashboardPage extends StatelessWidget {
                 spacing: 24,
                 runSpacing: 24,
                 alignment: WrapAlignment.center,
-                children: const [
-                  _DashboardButton(
+                children: [
+                  const _DashboardButton(
                     icon: Icons.inventory_2,
                     label: 'Products',
                   ),
-                  _DashboardButton(
+                  const _DashboardButton(
                     icon: Icons.category,
                     label: 'Categories',
                   ),
-                  _DashboardButton(
+                  const _DashboardButton(
                     icon: Icons.receipt_long,
                     label: 'Past Orders',
                   ),
-                  _DashboardButton(
+                  const _DashboardButton(
                     icon: Icons.local_shipping,
                     label: 'Delivery Status',
                   ),
                   _DashboardButton(
                     icon: Icons.comment,
                     label: 'Comments',
+                    onTap: () => Navigator.of(context).push(
+                      MaterialPageRoute(builder: (_) => const CommentApprovalPage()),
+                    ),
                   ),
                 ],
               ),
@@ -68,8 +72,8 @@ class ProductManagerDashboardPage extends StatelessWidget {
 class _DashboardButton extends StatelessWidget {
   final IconData icon;
   final String label;
-
-  const _DashboardButton({required this.icon, required this.label});
+  final VoidCallback? onTap;
+  const _DashboardButton({required this.icon, required this.label, this.onTap});
 
   @override
   Widget build(BuildContext context) {
@@ -77,7 +81,7 @@ class _DashboardButton extends StatelessWidget {
       width: 160,
       height: 140,
       child: ElevatedButton(
-        onPressed: () {},
+        onPressed: onTap,
         style: ElevatedButton.styleFrom(
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(16),

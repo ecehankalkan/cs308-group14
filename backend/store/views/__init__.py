@@ -7,6 +7,7 @@ from .test_views import test_invoice_email
 from .payment_views import checkout_view
 from .address_views import DeliveryAddressListView, DeliveryAddressDetailView, PaymentCardListView, PaymentCardDetailView
 from .wishlist_view import WishlistView, WishlistItemView
+from .manager_views import PendingReviewsListView, AllReviewsListView, ReviewModerationView
 
 __all__ = [
     'RegisterView',
@@ -40,4 +41,7 @@ __all__ = [
     'PaymentCardDetailView',
     'WishlistView',
     'WishlistItemView',
+    'PendingReviewsListView',
+    'AllReviewsListView',
+    'ReviewModerationView',
 ]

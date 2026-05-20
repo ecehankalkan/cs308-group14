@@ -153,7 +153,22 @@ class SalesRefundDecisionView(APIView):
         decision = request.data.get('decision')
         customer_email = order.customer.email
         order_ref = f'ORD-{order.id}'
-        amount = float(order.total_price)
+
+        # Build itemized refund breakdown using the price PAID at purchase time.
+        # We deliberately read item.price_at_purchase (NOT product.price or
+        # product.discounted_price) so later price changes never affect the email.
+        item_lines = []
+        items_total = 0.0
+        for item in order.items.all():
+            unit_price = float(item.price_at_purchase)
+            line_total = unit_price * item.quantity
+            items_total += line_total
+            item_lines.append(
+                f'  - {item.product.name} x{item.quantity} '
+                f'@ ${unit_price:.2f} = ${line_total:.2f}'
+            )
+        items_breakdown = '\n'.join(item_lines) if item_lines else '  (no items)'
+        amount = items_total  # equals order.total_price, but computed from purchase-time prices
 
         if decision == 'accept':
             # Restock items
@@ -168,7 +183,10 @@ class SalesRefundDecisionView(APIView):
                 message=(
                     f'Hello,\n\n'
                     f'Your refund request for order {order_ref} has been ACCEPTED.\n\n'
-                    f'The amount of ${amount:.2f} will be credited back to your original payment method.\n\n'
+                    f'Refund breakdown (prices as paid at time of purchase):\n'
+                    f'{items_breakdown}\n\n'
+                    f'Total refund: ${amount:.2f}\n\n'
+                    f'This amount will be credited back to your original payment method.\n\n'
                     f'Thank you,\nInkCloud Team'
                 ),
                 from_email=None,  # uses DEFAULT_FROM_EMAIL from settings
@@ -185,6 +203,9 @@ class SalesRefundDecisionView(APIView):
                 message=(
                     f'Hello,\n\n'
                     f'Unfortunately, your refund request for order {order_ref} has been REJECTED.\n\n'
+                    f'For reference, your original order (prices as paid at purchase):\n'
+                    f'{items_breakdown}\n\n'
+                    f'Order total: ${amount:.2f}\n\n'
                     f'If you have questions, please contact our support team.\n\n'
                     f'Thank you,\nInkCloud Team'
                 ),

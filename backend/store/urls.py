@@ -14,6 +14,12 @@ urlpatterns = [
     path('sales/orders/', views.SalesOrderListView.as_view(), name='sales_orders'),
     path('sales/orders/<int:pk>/invoice/', views.SalesOrderInvoiceView.as_view(), name='sales_order_invoice'),
     path('sales/orders/<int:pk>/refund-decision/', views.SalesRefundDecisionView.as_view(), name='sales_refund_decision'),
+    
+    # Comment Approval (Product Manager) 
+    path('manager/reviews/pending/',          views.PendingReviewsListView.as_view(),  name='pending_reviews'),
+    path('manager/reviews/',                  views.AllReviewsListView.as_view(),      name='all_reviews'),
+    path('manager/reviews/<int:pk>/moderate/',views.ReviewModerationView.as_view(),    name='moderate_review'),
+    # Profit Statistics (Sales Manager) 
 
     # Products (public list/detail + manager write operations)
     path('products/',                        views.ProductListView.as_view(),     name='product_list'),
