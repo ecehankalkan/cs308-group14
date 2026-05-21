@@ -74,73 +74,112 @@ class _ProductManagerProductsPageState extends State<ProductManagerProductsPage>
 
   void _showAddProductDialog() {
     final nameController = TextEditingController();
-    final priceController = TextEditingController();
     final stockController = TextEditingController();
+    final modelController = TextEditingController();
+    final descController = TextEditingController();
+    final imageController = TextEditingController();
+    final distController = TextEditingController();
+    
+    // Default warranty status
+    bool hasWarranty = true;
 
     showDialog(
       context: context,
       builder: (context) {
-        return AlertDialog(
-          title: const Text('Add New Product'),
-          content: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                TextField(
-                  controller: nameController,
-                  decoration: const InputDecoration(labelText: 'Product Name'),
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            return AlertDialog(
+              title: const Text('Add New Product'),
+              content: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    TextField(
+                      controller: nameController,
+                      decoration: const InputDecoration(labelText: 'Product Name *'),
+                    ),
+                    TextField(
+                      controller: modelController,
+                      decoration: const InputDecoration(labelText: 'Model'),
+                    ),
+                    TextField(
+                      controller: descController,
+                      decoration: const InputDecoration(labelText: 'Description *'),
+                      maxLines: 3,
+                    ),
+                    TextField(
+                      controller: imageController,
+                      decoration: const InputDecoration(labelText: 'Image URL'),
+                    ),
+                    TextField(
+                      controller: distController,
+                      decoration: const InputDecoration(labelText: 'Distributor Info'),
+                    ),
+                    TextField(
+                      controller: stockController,
+                      decoration: const InputDecoration(labelText: 'Initial Stock Quantity *'),
+                      keyboardType: TextInputType.number,
+                    ),
+                    const SizedBox(height: 16),
+                    Row(
+                      children: [
+                        const Text('Has Warranty?'),
+                        Spacer(),
+                        Switch(
+                          value: hasWarranty,
+                          activeColor: _dark,
+                          onChanged: (val) {
+                            setDialogState(() {
+                              hasWarranty = val;
+                            });
+                          },
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 16),
+                    const Text('Note: Prices are determined by the Sales team.', style: TextStyle(fontSize: 12, color: _dark, fontStyle: FontStyle.italic)),
+                  ],
                 ),
-                TextField(
-                  controller: priceController,
-                  decoration: const InputDecoration(labelText: 'Price'),
-                  keyboardType: TextInputType.number,
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(context),
+                  child: const Text('Cancel'),
                 ),
-                TextField(
-                  controller: stockController,
-                  decoration: const InputDecoration(labelText: 'Initial Stock Quantity'),
-                  keyboardType: TextInputType.number,
+                ElevatedButton(
+                  onPressed: () async {
+                    final name = nameController.text.trim();
+                    final stock = int.tryParse(stockController.text.trim());
+                    final desc = descController.text.trim();
+                    if (name.isEmpty || stock == null || desc.isEmpty) return;
+
+                    Navigator.pop(context);
+                    final newProduct = await ProductAdminService.createProduct({
+                      'name': name,
+                      'model': modelController.text.trim(),
+                      'description': desc,
+                      'image_url': imageController.text.trim(),
+                      'distributor_info': distController.text.trim(),
+                      'stock_quantity': stock,
+                      'warranty_status': hasWarranty,
+                      // 'category': null, // category can be null if DB allows
+                    });
+
+                    if (newProduct != null) {
+                      _fetchProducts();
+                    } else {
+                      if (mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(content: Text('Failed to add product.'), backgroundColor: Colors.red),
+                        );
+                      }
+                    }
+                  },
+                  child: const Text('Add'),
                 ),
-                const SizedBox(height: 16),
-                const Text('More fields like category, distributor, and warranty can be added later.', style: TextStyle(fontSize: 12, color: Colors.grey)),
               ],
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text('Cancel'),
-            ),
-            ElevatedButton(
-              onPressed: () async {
-                final name = nameController.text.trim();
-                final price = double.tryParse(priceController.text.trim());
-                final stock = int.tryParse(stockController.text.trim());
-                if (name.isEmpty || price == null || stock == null) return;
-
-                Navigator.pop(context);
-                final newProduct = await ProductAdminService.createProduct({
-                  'name': name,
-                  'price': price,
-                  'description': 'Description for $name',
-                  'stock_quantity': stock,
-                  'warranty_status': true,
-                  'distributor_info': 'Default Dist',
-                  // 'category': null, // category can be null if DB allows
-                });
-
-                if (newProduct != null) {
-                  _fetchProducts();
-                } else {
-                  if (mounted) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('Failed to add product (Make sure there is a Category or it allows null)'), backgroundColor: Colors.red),
-                    );
-                  }
-                }
-              },
-              child: const Text('Add'),
-            ),
-          ],
+            );
+          }
         );
       },
     );
@@ -175,10 +214,13 @@ class _ProductManagerProductsPageState extends State<ProductManagerProductsPage>
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         Text(product.isActive ? 'Active' : 'Inactive', style: TextStyle(color: product.isActive ? Colors.green : Colors.grey)),
-                        Switch(
-                          value: product.isActive,
-                          activeColor: _dark,
-                          onChanged: (val) => _toggleProductStatus(product, val),
+                        Tooltip(
+                          message: product.price <= 0.0 ? 'Price must be set by Sales Team to enable' : '',
+                          child: Switch(
+                            value: product.isActive,
+                            activeColor: _dark,
+                            onChanged: product.price <= 0.0 ? null : (val) => _toggleProductStatus(product, val),
+                          ),
                         ),
                       ],
                     ),

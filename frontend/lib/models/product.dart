@@ -24,6 +24,7 @@ class Product {
   final double? averageRating;
   final int ratingCount;
   final bool isActive;
+  final String? imageUrl;
 
   const Product({
     required this.id,
@@ -38,6 +39,7 @@ class Product {
     this.averageRating,
     this.ratingCount = 0,
     this.isActive = true,
+    this.imageUrl,
   });
 
   // TODO: replace with Firestore: Product.fromFirestore(DocumentSnapshot doc)
@@ -61,6 +63,7 @@ class Product {
           : null,
       ratingCount: map['rating_count'] as int? ?? 0,
       isActive: map['is_active'] as bool? ?? true,
+      imageUrl: map['image_url'] as String?,
     );
   }
 
@@ -85,6 +88,7 @@ class Product {
     double? averageRating,
     int? ratingCount,
     bool? isActive,
+    String? imageUrl,
   }) {
     return Product(
       id: id ?? this.id,
@@ -99,6 +103,7 @@ class Product {
       averageRating: averageRating ?? this.averageRating,
       ratingCount: ratingCount ?? this.ratingCount,
       isActive: isActive ?? this.isActive,
+      imageUrl: imageUrl ?? this.imageUrl,
     );
   }
 }

@@ -84,6 +84,7 @@ class Product(models.Model):
     category          = models.ForeignKey(Category, on_delete=models.SET_NULL, null=True, blank=True, related_name='products')
     popularity_score  = models.FloatField(default=0.0, db_index=True)
     is_active         = models.BooleanField(default=True)
+    image_url         = models.URLField(max_length=500, blank=True)
 
     class Meta:
         indexes = [
@@ -93,6 +94,21 @@ class Product(models.Model):
 
     def effective_price(self):
         return self.discounted_price if self.discounted_price is not None else self.price
+
+    def save(self, *args, **kwargs):
+        if not self.serial_number:
+            # We need an ID to generate the SN, so save first if we don't have one
+            is_new = self.pk is None
+            if is_new:
+                super().save(*args, **kwargs)
+                self.serial_number = f"SN-{self.pk:03d}"
+                kwargs['force_insert'] = False
+                super().save(*args, **kwargs)
+            else:
+                self.serial_number = f"SN-{self.pk:03d}"
+                super().save(*args, **kwargs)
+        else:
+            super().save(*args, **kwargs)
 
     def __str__(self):
         return self.name

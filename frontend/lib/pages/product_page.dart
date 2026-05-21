@@ -447,7 +447,9 @@ class _ProductPageState extends State<ProductPage> {
                   ),
                   clipBehavior: Clip.hardEdge,
                   child: Image.network(
-                    _coverUrl(product.name),
+                    (product.imageUrl != null && product.imageUrl!.isNotEmpty)
+                        ? product.imageUrl!
+                        : _coverUrl(product.name),
                     fit: BoxFit.cover,
                     errorBuilder: (context, error, stackTrace) =>
                         const Center(

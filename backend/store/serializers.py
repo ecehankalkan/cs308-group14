@@ -35,7 +35,33 @@ class ProductSerializer(serializers.ModelSerializer):
         fields = ['id', 'name', 'model', 'serial_number', 'description',
                   'stock_quantity', 'price', 'discounted_price', 'in_stock',
                   'warranty_status', 'distributor_info', 'category', 'popularity_score',
-                  'average_rating', 'rating_count', 'is_active']
+                  'average_rating', 'rating_count', 'is_active', 'image_url']
+
+    def validate(self, attrs):
+        request = self.context.get('request')
+        is_pm = request and request.user.is_authenticated and request.user.role == Customer.Role.PRODUCT_MANAGER
+        
+        if is_pm:
+            # Prevent Product Manager from modifying price
+            attrs.pop('price', None)
+            attrs.pop('discounted_price', None)
+            
+            # If creating a new product, we must provide a default price since the DB requires it
+            if not self.instance:
+                attrs['price'] = 0.0
+                attrs['is_active'] = False # Default to inactive when price is 0.0
+
+        # Determine the effective price to enforce visibility rules
+        current_price = attrs.get('price')
+        if current_price is None and self.instance:
+            current_price = self.instance.price
+        
+        # If price is 0, product cannot be active
+        is_active = attrs.get('is_active')
+        if is_active and current_price is not None and float(current_price) <= 0.0:
+            raise serializers.ValidationError("Cannot enable product visibility until a price has been set by the Sales team.")
+
+        return attrs
 
     def get_in_stock(self, obj):
         return obj.stock_quantity > 0

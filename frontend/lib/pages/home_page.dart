@@ -210,6 +210,7 @@ class _HomePageState extends State<HomePage> {
                   ? double.tryParse(map['average_rating'].toString())
                   : null,
               ratingCount:   map['rating_count'] as int? ?? 0,
+              imageUrl:      map['image_url'] as String?,
             );
           }).toList();
           _loadingBooks = false;
@@ -810,7 +811,9 @@ class _ProductCard extends StatelessWidget {
               ClipRRect(
                 borderRadius: const BorderRadius.vertical(top: Radius.circular(7)),
                 child: CachedNetworkImage(
-                  imageUrl: _coverUrl(product.name),
+                  imageUrl: (product.imageUrl != null && product.imageUrl!.isNotEmpty) 
+                      ? product.imageUrl! 
+                      : _coverUrl(product.name),
                   height: 200,
                   width: double.infinity,
                   fit: BoxFit.cover,
