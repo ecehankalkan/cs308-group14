@@ -297,14 +297,34 @@ class _WishlistCard extends StatelessWidget {
                     const SizedBox(height: 8),
                     Row(
                       children: [
-                        Text(
-                          '\$${item.product.price.toStringAsFixed(2)}',
-                          style: const TextStyle(
-                            color: _dark,
-                            fontSize: 15,
-                            fontWeight: FontWeight.w800,
+                        if (item.product.discountedPrice != null && item.product.discountedPrice! < item.product.price) ...[
+                          Text(
+                            '\$${item.product.discountedPrice!.toStringAsFixed(2)}',
+                            style: const TextStyle(
+                              color: Colors.red,
+                              fontSize: 15,
+                              fontWeight: FontWeight.w800,
+                            ),
                           ),
-                        ),
+                          const SizedBox(width: 6),
+                          Text(
+                            '\$${item.product.price.toStringAsFixed(2)}',
+                            style: const TextStyle(
+                              color: Colors.grey,
+                              fontSize: 12,
+                              decoration: TextDecoration.lineThrough,
+                            ),
+                          ),
+                        ] else ...[
+                          Text(
+                            '\$${item.product.price.toStringAsFixed(2)}',
+                            style: const TextStyle(
+                              color: _dark,
+                              fontSize: 15,
+                              fontWeight: FontWeight.w800,
+                            ),
+                          ),
+                        ],
                         const SizedBox(width: 12),
                         Text(
                           item.product.stockQuantity > 0 ? 'In stock' : 'Out of stock',
