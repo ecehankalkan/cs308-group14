@@ -1,7 +1,8 @@
 from django.test import TestCase
 from rest_framework.test import APIClient
+from django.core import mail
 
-from store.models import Customer, Product, Category
+from store.models import Customer, Product, Category, Wishlist
 
 
 class ProductTests(TestCase):
@@ -86,6 +87,7 @@ class ProductTests(TestCase):
         self.assertEqual(r.status_code, 403)
 
     def test_price_update_with_discount_percentage_sets_discounted_price(self):
+        self.client.force_authenticate(user=self.sales_manager)
         r = self.client.patch(
             f'/api/products/{self.product.pk}/price/',
             {'price': 40.00, 'discount_percentage': 25},
@@ -94,3 +96,21 @@ class ProductTests(TestCase):
         self.product.refresh_from_db()
         self.assertEqual(float(self.product.price), 40.00)
         self.assertAlmostEqual(float(self.product.discounted_price), 30.00, places=2)
+
+    def test_wishlist_discount_notification_email(self):
+        # Create a wishlist entry for the customer
+        Wishlist.objects.create(customer=self.customer, product=self.product)
+        
+        # Now update the discount as sales manager
+        self.client.force_authenticate(user=self.sales_manager)
+        r = self.client.post(
+            f'/api/products/{self.product.pk}/discount/',
+            {'discounted_price': 30.00}
+        )
+        self.assertEqual(r.status_code, 200)
+        
+        # Verify an email was sent
+        self.assertEqual(len(mail.outbox), 1)
+        self.assertIn("Price drop on Django Unleashed", mail.outbox[0].subject)
+        self.assertEqual(mail.outbox[0].to, [self.customer.email])
+
