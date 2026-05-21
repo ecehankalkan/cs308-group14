@@ -30,6 +30,14 @@ class ProductSerializer(serializers.ModelSerializer):
     average_rating = serializers.SerializerMethodField()
     rating_count   = serializers.SerializerMethodField()
 
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        request = self.context.get('request')
+        if request and request.user and request.user.is_authenticated:
+            if getattr(request.user, 'role', None) == 'product_manager':
+                self.fields.pop('price', None)
+                self.fields.pop('discounted_price', None)
+
     class Meta:
         model  = Product
         fields = ['id', 'name', 'model', 'serial_number', 'description',

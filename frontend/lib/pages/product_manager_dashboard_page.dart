@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'comment_approval_page.dart';
+import 'product_manager_products_page.dart';
 
 class ProductManagerDashboardPage extends StatelessWidget {
   const ProductManagerDashboardPage({super.key});
@@ -36,9 +37,12 @@ class ProductManagerDashboardPage extends StatelessWidget {
                 runSpacing: 24,
                 alignment: WrapAlignment.center,
                 children: [
-                  const _DashboardButton(
+                  _DashboardButton(
                     icon: Icons.inventory_2,
                     label: 'Products',
+                    onTap: () => Navigator.of(context).push(
+                      MaterialPageRoute(builder: (_) => const ProductManagerProductsPage()),
+                    ),
                   ),
                   const _DashboardButton(
                     icon: Icons.category,
