@@ -159,6 +159,27 @@ class AuthService {
   }
 
   // ---------------------------------------------------------------------------
+  // Manager Login (Bypass Firebase)
+  // ---------------------------------------------------------------------------
+  Future<bool> loginManager(String email, String password) async {
+    try {
+      final response = await http.post(
+        Uri.parse('$_baseUrl/api/login/'),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({'email': email, 'password': password}),
+      );
+      if (response.statusCode == 200) {
+        final body = jsonDecode(response.body) as Map<String, dynamic>;
+        await _saveTokens(body['access'] as String, body['refresh'] as String);
+        return true;
+      }
+      return false;
+    } catch (e) {
+      return false;
+    }
+  }
+
+  // ---------------------------------------------------------------------------
   // Reset password
   // ---------------------------------------------------------------------------
 

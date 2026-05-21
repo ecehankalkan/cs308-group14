@@ -34,13 +34,35 @@ class _LoginPageState extends State<LoginPage> {
 
     if (_emailController.text.trim() == _kSalesUsername &&
         _passwordController.text == _kSalesPassword) {
-      Navigator.pushReplacementNamed(context, '/sales-dashboard');
+      setState(() => _isLoading = true);
+      final success = await _authService.loginManager('sales_manager@inkcloud.com', 'Test1234');
+      setState(() => _isLoading = false);
+      if (success) {
+        if (!mounted) return;
+        Navigator.pushReplacementNamed(context, '/sales-dashboard');
+      } else {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Sales Manager login failed!'), backgroundColor: Colors.red),
+        );
+      }
       return;
     }
 
     if (_emailController.text.trim() == _kProductUsername &&
         _passwordController.text == _kProductPassword) {
-      Navigator.pushReplacementNamed(context, '/product-dashboard');
+      setState(() => _isLoading = true);
+      final success = await _authService.loginManager('product_manager@inkcloud.com', 'Test1234');
+      setState(() => _isLoading = false);
+      if (success) {
+        if (!mounted) return;
+        Navigator.pushReplacementNamed(context, '/product-dashboard');
+      } else {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Product Manager login failed!'), backgroundColor: Colors.red),
+        );
+      }
       return;
     }
 

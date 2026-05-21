@@ -37,6 +37,9 @@ class ProductListView(generics.ListCreateAPIView):
         category = self.request.query_params.get('category')
         sort     = self.request.query_params.get('sort')
 
+        if not (self.request.user.is_authenticated and self.request.user.role == Customer.Role.PRODUCT_MANAGER):
+            qs = qs.filter(is_active=True)
+
         if search:
             qs = qs.filter(Q(name__icontains=search) | Q(description__icontains=search))
         if category:
@@ -49,16 +52,17 @@ class ProductListView(generics.ListCreateAPIView):
         return qs
 
 
-class ProductDetailView(generics.RetrieveDestroyAPIView):
+class ProductDetailView(generics.RetrieveUpdateDestroyAPIView):
     """
-    GET    /api/products/<id>/ — public
-    DELETE /api/products/<id>/ — PRODUCT_MANAGER only
+    GET          /api/products/<id>/ — public
+    PUT/PATCH    /api/products/<id>/ — PRODUCT_MANAGER only
+    DELETE       /api/products/<id>/ — PRODUCT_MANAGER only
     """
     queryset         = Product.objects.all()
     serializer_class = ProductSerializer
 
     def get_permissions(self):
-        if self.request.method == 'DELETE':
+        if self.request.method in ['PUT', 'PATCH', 'DELETE']:
             return [IsProductManager()]
         return [permissions.AllowAny()]
 

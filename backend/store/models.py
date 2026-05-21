@@ -83,6 +83,7 @@ class Product(models.Model):
     distributor_info  = models.CharField(max_length=255, blank=True)
     category          = models.ForeignKey(Category, on_delete=models.SET_NULL, null=True, blank=True, related_name='products')
     popularity_score  = models.FloatField(default=0.0, db_index=True)
+    is_active         = models.BooleanField(default=True)
 
     class Meta:
         indexes = [

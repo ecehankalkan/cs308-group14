@@ -23,6 +23,7 @@ class Product {
   final DeweyCategory category;
   final double? averageRating;
   final int ratingCount;
+  final bool isActive;
 
   const Product({
     required this.id,
@@ -36,6 +37,7 @@ class Product {
     required this.category,
     this.averageRating,
     this.ratingCount = 0,
+    this.isActive = true,
   });
 
   // TODO: replace with Firestore: Product.fromFirestore(DocumentSnapshot doc)
@@ -58,6 +60,7 @@ class Product {
           ? double.tryParse(map['average_rating'].toString())
           : null,
       ratingCount: map['rating_count'] as int? ?? 0,
+      isActive: map['is_active'] as bool? ?? true,
     );
   }
 
@@ -67,5 +70,35 @@ class Product {
       if (value.name == cat) return value;
     }
     return DeweyCategory.literature;
+  }
+
+  Product copyWith({
+    String? id,
+    String? name,
+    String? description,
+    double? price,
+    double? discountedPrice,
+    String? warrantyInfo,
+    String? distributor,
+    int? stockQuantity,
+    DeweyCategory? category,
+    double? averageRating,
+    int? ratingCount,
+    bool? isActive,
+  }) {
+    return Product(
+      id: id ?? this.id,
+      name: name ?? this.name,
+      description: description ?? this.description,
+      price: price ?? this.price,
+      discountedPrice: discountedPrice ?? this.discountedPrice,
+      warrantyInfo: warrantyInfo ?? this.warrantyInfo,
+      distributor: distributor ?? this.distributor,
+      stockQuantity: stockQuantity ?? this.stockQuantity,
+      category: category ?? this.category,
+      averageRating: averageRating ?? this.averageRating,
+      ratingCount: ratingCount ?? this.ratingCount,
+      isActive: isActive ?? this.isActive,
+    );
   }
 }

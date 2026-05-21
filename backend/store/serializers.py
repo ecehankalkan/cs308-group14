@@ -35,7 +35,7 @@ class ProductSerializer(serializers.ModelSerializer):
         fields = ['id', 'name', 'model', 'serial_number', 'description',
                   'stock_quantity', 'price', 'discounted_price', 'in_stock',
                   'warranty_status', 'distributor_info', 'category', 'popularity_score',
-                  'average_rating', 'rating_count']
+                  'average_rating', 'rating_count', 'is_active']
 
     def get_in_stock(self, obj):
         return obj.stock_quantity > 0

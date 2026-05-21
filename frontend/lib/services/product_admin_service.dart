@@ -1,0 +1,85 @@
+import 'dart:convert';
+import 'package:http/http.dart' as http;
+import '../models/product.dart';
+import 'auth_service.dart';
+
+class ProductAdminService {
+  static const String _baseUrl = 'http://127.0.0.1:8000/api';
+
+  static Future<String?> _getToken() async {
+    return await AuthService.getAccessToken();
+  }
+
+  static Future<List<Product>> fetchAllProducts() async {
+    final token = await _getToken();
+    final headers = <String, String>{};
+    if (token != null) {
+      headers['Authorization'] = 'Bearer $token';
+    }
+
+    try {
+      final response = await http.get(
+        Uri.parse('$_baseUrl/products/'),
+        headers: headers,
+      );
+
+      if (response.statusCode == 200) {
+        final List<dynamic> data = jsonDecode(response.body) as List<dynamic>;
+        return data.map((item) => Product.fromMap(item as Map<String, dynamic>)).toList();
+      }
+    } catch (e) {
+      // ignore
+    }
+    return [];
+  }
+
+  // Create Product
+  static Future<Product?> createProduct(Map<String, dynamic> productData) async {
+    final token = await _getToken();
+    if (token == null) return null;
+
+    try {
+      final response = await http.post(
+        Uri.parse('$_baseUrl/products/'),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+        body: jsonEncode(productData),
+      );
+
+      if (response.statusCode == 201) {
+        return Product.fromMap(jsonDecode(response.body));
+      }
+    } catch (e) {
+      // Handle error
+    }
+    return null;
+  }
+
+  static Future<String> updateProductStatus(String id, bool isActive) async {
+    final token = await _getToken();
+    if (token == null) return 'No auth token found';
+
+    try {
+      final response = await http.patch(
+        Uri.parse('$_baseUrl/products/$id/'),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+        body: jsonEncode({'is_active': isActive}),
+      );
+
+      if (response.statusCode == 200) {
+        return 'success';
+      } else {
+        print('Error updating product: ${response.statusCode} - ${response.body}');
+        return '${response.statusCode} - ${response.body}';
+      }
+    } catch (e) {
+      print('Exception updating product: $e');
+      return 'Exception: $e';
+    }
+  }
+}
