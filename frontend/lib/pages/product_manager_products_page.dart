@@ -85,9 +85,9 @@ class _ProductManagerProductsPageState extends State<ProductManagerProductsPage>
 
     showDialog(
       context: context,
-      builder: (context) {
+      builder: (dialogContext) {
         return StatefulBuilder(
-          builder: (context, setDialogState) {
+          builder: (builderContext, setDialogState) {
             return AlertDialog(
               title: const Text('Add New Product'),
               content: SingleChildScrollView(
@@ -143,7 +143,7 @@ class _ProductManagerProductsPageState extends State<ProductManagerProductsPage>
               ),
               actions: [
                 TextButton(
-                  onPressed: () => Navigator.pop(context),
+                  onPressed: () => Navigator.pop(dialogContext),
                   child: const Text('Cancel'),
                 ),
                 ElevatedButton(
@@ -153,7 +153,7 @@ class _ProductManagerProductsPageState extends State<ProductManagerProductsPage>
                     final desc = descController.text.trim();
                     if (name.isEmpty || stock == null || desc.isEmpty) return;
 
-                    Navigator.pop(context);
+                    Navigator.pop(dialogContext);
                     final newProduct = await ProductAdminService.createProduct({
                       'name': name,
                       'model': modelController.text.trim(),

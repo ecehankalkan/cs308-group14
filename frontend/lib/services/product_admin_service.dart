@@ -50,8 +50,11 @@ class ProductAdminService {
 
       if (response.statusCode == 201) {
         return Product.fromMap(jsonDecode(response.body));
+      } else {
+        print('Error creating product: ${response.statusCode} - ${response.body}');
       }
     } catch (e) {
+      print('Exception creating product: $e');
       // Handle error
     }
     return null;

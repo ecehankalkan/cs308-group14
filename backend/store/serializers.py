@@ -29,6 +29,9 @@ class ProductSerializer(serializers.ModelSerializer):
     in_stock      = serializers.SerializerMethodField()
     average_rating = serializers.SerializerMethodField()
     rating_count   = serializers.SerializerMethodField()
+    serial_number  = serializers.CharField(read_only=True)
+    price          = serializers.DecimalField(max_digits=10, decimal_places=2, required=False)
+    discounted_price = serializers.DecimalField(max_digits=10, decimal_places=2, required=False, allow_null=True)
 
     class Meta:
         model  = Product
