@@ -122,15 +122,25 @@ class ProductDiscountView(APIView):
         if discounted_price is None:
             return Response({'error': 'discounted_price required'}, status=status.HTTP_400_BAD_REQUEST)
 
+        from decimal import Decimal, InvalidOperation
+        try:
+            discounted_price = Decimal(str(discounted_price))
+        except (TypeError, ValueError, InvalidOperation):
+            return Response({'error': 'Invalid discounted_price'}, status=status.HTTP_400_BAD_REQUEST)
+
         product.discounted_price = discounted_price
         product.save(update_fields=['discounted_price'])
+
+        if product.discounted_price is not None and product.discounted_price < product.price:
+            from store.views.wishlist_view import notify_wishlist_users
+            notify_wishlist_users(product)
 
         return Response(ProductSerializer(product).data)
 
 
 class ProductPriceView(APIView):
-    """PATCH /api/products/<id>/price/ — sales manager dashboard (no JWT required)"""
-    permission_classes = [permissions.AllowAny]
+    """PATCH /api/products/<id>/price/ — sales manager dashboard"""
+    permission_classes = [IsSalesManager]
 
     def patch(self, request, pk):
         try:
@@ -142,9 +152,10 @@ class ProductPriceView(APIView):
         discount_pct = request.data.get('discount_percentage')
 
         if new_price is not None:
+            from decimal import Decimal, InvalidOperation
             try:
-                product.price = float(new_price)
-            except (TypeError, ValueError):
+                product.price = Decimal(str(new_price))
+            except (TypeError, ValueError, InvalidOperation):
                 return Response({'error': 'Invalid price'}, status=status.HTTP_400_BAD_REQUEST)
 
         if discount_pct is not None:
@@ -152,11 +163,20 @@ class ProductPriceView(APIView):
                 pct = float(discount_pct)
                 if not (0 <= pct <= 100):
                     return Response({'error': 'discount_percentage must be 0–100'}, status=status.HTTP_400_BAD_REQUEST)
-                product.discounted_price = round(product.price * (1 - pct / 100), 2) if pct > 0 else None
+                if pct > 0:
+                    from decimal import Decimal
+                    product.discounted_price = Decimal(str(round(float(product.price) * (1 - pct / 100), 2)))
+                else:
+                    product.discounted_price = None
             except (TypeError, ValueError):
                 return Response({'error': 'Invalid discount_percentage'}, status=status.HTTP_400_BAD_REQUEST)
 
         product.save()
+
+        if product.discounted_price is not None and product.discounted_price < product.price:
+            from store.views.wishlist_view import notify_wishlist_users
+            notify_wishlist_users(product)
+
         return Response(ProductSerializer(product).data)
 
 

@@ -904,8 +904,45 @@ class _ProductCard extends StatelessWidget {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Text('\$${product.price.toStringAsFixed(2)}',
-                        style: const TextStyle(color: _dark, fontSize: 15, fontWeight: FontWeight.w800)),
+                    if (product.discountedPrice != null && product.discountedPrice! < product.price) ...[
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              Text(
+                                '\$${product.discountedPrice!.toStringAsFixed(2)}',
+                                style: const TextStyle(color: Colors.red, fontSize: 16, fontWeight: FontWeight.w900),
+                              ),
+                              const SizedBox(width: 6),
+                              Text(
+                                '\$${product.price.toStringAsFixed(2)}',
+                                style: const TextStyle(
+                                  color: Colors.grey,
+                                  fontSize: 12,
+                                  decoration: TextDecoration.lineThrough,
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 2),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                            decoration: BoxDecoration(
+                              color: Colors.red.shade50,
+                              borderRadius: BorderRadius.circular(4),
+                            ),
+                            child: Text(
+                              '${((product.price - product.discountedPrice!) / product.price * 100).round()}% OFF',
+                              style: TextStyle(color: Colors.red.shade800, fontSize: 10, fontWeight: FontWeight.bold),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ] else ...[
+                      Text('\$${product.price.toStringAsFixed(2)}',
+                          style: const TextStyle(color: _dark, fontSize: 15, fontWeight: FontWeight.w800)),
+                    ],
                     Text(
                       product.stockQuantity > 0 ? 'In stock' : 'Out of stock',
                       style: TextStyle(

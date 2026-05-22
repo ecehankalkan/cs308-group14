@@ -486,14 +486,50 @@ class _ProductPageState extends State<ProductPage> {
                     const SizedBox(height: 14),
                     Row(
                       children: [
-                        Text(
-                          '\$${product.price.toStringAsFixed(2)}',
-                          style: const TextStyle(
-                            color: _dark,
-                            fontSize: 28,
-                            fontWeight: FontWeight.w800,
+                        if (product.discountedPrice != null && product.discountedPrice! < product.price) ...[
+                          Text(
+                            '\$${product.discountedPrice!.toStringAsFixed(2)}',
+                            style: const TextStyle(
+                              color: Colors.red,
+                              fontSize: 28,
+                              fontWeight: FontWeight.w900,
+                            ),
                           ),
-                        ),
+                          const SizedBox(width: 10),
+                          Text(
+                            '\$${product.price.toStringAsFixed(2)}',
+                            style: const TextStyle(
+                              color: Colors.grey,
+                              fontSize: 18,
+                              decoration: TextDecoration.lineThrough,
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                            decoration: BoxDecoration(
+                              color: Colors.red.shade50,
+                              borderRadius: BorderRadius.circular(6),
+                            ),
+                            child: Text(
+                              '${((product.price - product.discountedPrice!) / product.price * 100).round()}% OFF',
+                              style: TextStyle(
+                                color: Colors.red.shade800,
+                                fontSize: 12,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ),
+                        ] else ...[
+                          Text(
+                            '\$${product.price.toStringAsFixed(2)}',
+                            style: const TextStyle(
+                              color: _dark,
+                              fontSize: 28,
+                              fontWeight: FontWeight.w800,
+                            ),
+                          ),
+                        ],
                         const SizedBox(width: 20),
                         Container(
                           padding: const EdgeInsets.symmetric(
