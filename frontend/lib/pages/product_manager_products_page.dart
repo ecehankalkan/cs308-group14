@@ -134,15 +134,26 @@ class _ProductManagerProductsPageState extends State<ProductManagerProductsPage>
 
     if (newStock != null) {
       setState(() => _loading = true);
-      // Wait, let's use the new updateProductStock method via ProductAdminService
-      // Wait, did ProductAdminService have updateProductStock? No, the teammate added it to ProductService.
-      // In the teammate's branch, ProductService still exists.
-      // I'll just keep the teammate's exact logic but adapt it to not crash since ProductAdminService handles other stuff.
-      // Wait, let's use the actual api call for patch directly if needed or just let it be.
-      // Oh wait, the teammate actually added updateProductStock to ProductService.
-      // But my version above removed ProductService import.
-      // I'll re-add it or just fetch it again if it fails.
-      // Wait, let me just add it.
+      final updated = await ProductAdminService.updateProductStock(product.id, newStock);
+      if (!mounted) return;
+
+      if (updated != null) {
+        setState(() {
+          final index = _products.indexWhere((p) => p.id == product.id);
+          if (index != -1) {
+            _products[index] = updated;
+          }
+          _loading = false;
+        });
+      } else {
+        setState(() => _loading = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Failed to update stock.'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
     }
   }
 
@@ -372,10 +383,17 @@ class _ProductManagerProductsPageState extends State<ProductManagerProductsPage>
                                       onPressed: () => _editStock(product),
                                     ),
                                     const SizedBox(width: 16),
-                                    Column(
-                                      mainAxisAlignment: MainAxisAlignment.center,
+                                    Row(
+                                      mainAxisSize: MainAxisSize.min,
                                       children: [
-                                        Text(product.isActive ? 'Active' : 'Inactive', style: TextStyle(fontSize: 10, color: product.isActive ? Colors.green : Colors.grey)),
+                                        Text(
+                                          product.isActive ? 'Active' : 'Inactive',
+                                          style: TextStyle(
+                                            fontSize: 10,
+                                            color: product.isActive ? Colors.green : Colors.grey,
+                                          ),
+                                        ),
+                                        const SizedBox(width: 6),
                                         Tooltip(
                                           message: product.price <= 0.0 ? 'Price must be set by Sales Team to enable' : '',
                                           child: Switch(

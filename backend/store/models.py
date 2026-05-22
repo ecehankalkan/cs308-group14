@@ -141,6 +141,21 @@ class Order(models.Model):
     def __str__(self):
         return f'Order #{self.pk} — {self.customer.email}'
 
+    def save(self, *args, **kwargs):
+        update_fields = kwargs.get('update_fields')
+        status_changing = update_fields is None or 'status' in update_fields
+        previous_status = None
+        if self.pk and status_changing:
+            previous_status = Order.objects.filter(pk=self.pk).values_list('status', flat=True).first()
+
+        super().save(*args, **kwargs)
+
+        if status_changing and previous_status != Order.Status.REFUNDED and self.status == Order.Status.REFUNDED:
+            for item in self.items.select_related('product').all():
+                product = item.product
+                product.stock_quantity += item.quantity
+                product.save(update_fields=['stock_quantity'])
+
 
 class OrderItem(models.Model):
     order             = models.ForeignKey(Order, on_delete=models.CASCADE, related_name='items')

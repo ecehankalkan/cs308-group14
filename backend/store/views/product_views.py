@@ -100,10 +100,31 @@ class ProductStockView(APIView):
             return Response({'error': 'Product not found'}, status=status.HTTP_404_NOT_FOUND)
 
         quantity = request.data.get('stock_quantity')
-        if quantity is None:
-            return Response({'error': 'stock_quantity required'}, status=status.HTTP_400_BAD_REQUEST)
+        delta = request.data.get('stock_delta')
 
-        product.stock_quantity = quantity
+        if quantity is not None and delta is not None:
+            return Response({'error': 'Provide either stock_quantity or stock_delta'}, status=status.HTTP_400_BAD_REQUEST)
+        if quantity is None and delta is None:
+            return Response({'error': 'stock_quantity or stock_delta required'}, status=status.HTTP_400_BAD_REQUEST)
+
+        if quantity is not None:
+            try:
+                quantity = int(quantity)
+            except (TypeError, ValueError):
+                return Response({'error': 'Invalid stock_quantity'}, status=status.HTTP_400_BAD_REQUEST)
+            if quantity < 0:
+                return Response({'error': 'stock_quantity must be >= 0'}, status=status.HTTP_400_BAD_REQUEST)
+            product.stock_quantity = quantity
+        else:
+            try:
+                delta = int(delta)
+            except (TypeError, ValueError):
+                return Response({'error': 'Invalid stock_delta'}, status=status.HTTP_400_BAD_REQUEST)
+            new_quantity = product.stock_quantity + delta
+            if new_quantity < 0:
+                return Response({'error': 'stock_quantity cannot be negative'}, status=status.HTTP_400_BAD_REQUEST)
+            product.stock_quantity = new_quantity
+
         product.save(update_fields=['stock_quantity'])
         return Response(ProductSerializer(product).data)
 

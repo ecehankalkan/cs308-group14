@@ -153,6 +153,31 @@ class ProductAdminService {
     }
   }
 
+  static Future<Product?> updateProductStock(String id, int quantity) async {
+    final token = await _getToken();
+    if (token == null) return null;
+
+    try {
+      final response = await http.patch(
+        Uri.parse('$_baseUrl/products/$id/stock/'),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+        body: jsonEncode({'stock_quantity': quantity}),
+      );
+
+      if (response.statusCode == 200) {
+        return Product.fromMap(jsonDecode(response.body) as Map<String, dynamic>);
+      } else {
+        print('Error updating stock: ${response.statusCode} - ${response.body}');
+      }
+    } catch (e) {
+      print('Exception updating stock: $e');
+    }
+    return null;
+  }
+
   static Future<List<Order>> fetchAllOrders() async {
     final token = await _getToken();
     final headers = <String, String>{};

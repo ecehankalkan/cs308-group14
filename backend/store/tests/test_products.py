@@ -63,6 +63,36 @@ class ProductTests(TestCase):
         self.product.refresh_from_db()
         self.assertEqual(self.product.stock_quantity, 50)
 
+    def test_stock_increase_by_product_manager_succeeds(self):
+        self.client.force_authenticate(user=self.product_manager)
+        r = self.client.patch(
+            f'/api/products/{self.product.pk}/stock/', {'stock_delta': 5},
+            format='json'
+        )
+        self.assertEqual(r.status_code, 200)
+        self.product.refresh_from_db()
+        self.assertEqual(self.product.stock_quantity, 25)
+
+    def test_stock_decrease_by_product_manager_succeeds(self):
+        self.client.force_authenticate(user=self.product_manager)
+        r = self.client.patch(
+            f'/api/products/{self.product.pk}/stock/', {'stock_delta': -5},
+            format='json'
+        )
+        self.assertEqual(r.status_code, 200)
+        self.product.refresh_from_db()
+        self.assertEqual(self.product.stock_quantity, 15)
+
+    def test_stock_decrease_below_zero_fails(self):
+        self.client.force_authenticate(user=self.product_manager)
+        r = self.client.patch(
+            f'/api/products/{self.product.pk}/stock/', {'stock_delta': -25},
+            format='json'
+        )
+        self.assertEqual(r.status_code, 400)
+        self.product.refresh_from_db()
+        self.assertEqual(self.product.stock_quantity, 20)
+
     def test_stock_update_by_regular_customer_fails(self):
         self.client.force_authenticate(user=self.customer)
         r = self.client.patch(

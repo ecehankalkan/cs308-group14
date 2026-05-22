@@ -218,11 +218,6 @@ class SalesRefundDecisionView(APIView):
         amount = items_total  # equals order.total_price, but computed from purchase-time prices
 
         if decision == 'accept':
-            # Restock items
-            for item in order.items.all():
-                product = item.product
-                product.stock_quantity += item.quantity
-                product.save(update_fields=['stock_quantity'])
             order.status = Order.Status.REFUNDED
             order.save(update_fields=['status'])
             send_mail(
