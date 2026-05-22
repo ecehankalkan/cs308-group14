@@ -607,8 +607,51 @@ class _RevenueTabState extends State<_RevenueTab> {
       final k = _bucket(o.createdAt);
       map[k] = (map[k] ?? 0) + o.totalAmount;
     }
+    if (map.isEmpty) return {};
     final sorted = map.entries.toList()..sort((a, b) => a.key.compareTo(b.key));
-    return Map.fromEntries(sorted);
+    final firstKey = sorted.first.key;
+    final lastKey  = sorted.last.key;
+
+    // Fill every period between first and last with 0 if no orders fell in it
+    final filled = <String, double>{};
+    for (final k in _periodRange(firstKey, lastKey)) {
+      filled[k] = map[k] ?? 0;
+    }
+    return filled;
+  }
+
+  List<String> _periodRange(String firstKey, String lastKey) {
+    final result = <String>[];
+    switch (_granularity) {
+      case 'daily':
+        var cur = DateTime.parse(firstKey);
+        final end = DateTime.parse(lastKey);
+        while (!cur.isAfter(end)) {
+          result.add(_bucket(cur));
+          cur = cur.add(const Duration(days: 1));
+        }
+      case 'weekly':
+        var cur = DateTime.parse(firstKey);
+        final end = DateTime.parse(lastKey);
+        while (!cur.isAfter(end)) {
+          result.add(_bucket(cur));
+          cur = cur.add(const Duration(days: 7));
+        }
+      case 'monthly':
+      default:
+        final fp = firstKey.split('-');
+        final lp = lastKey.split('-');
+        var y = int.parse(fp[0]);
+        var m = int.parse(fp[1]);
+        final ey = int.parse(lp[0]);
+        final em = int.parse(lp[1]);
+        while (y < ey || (y == ey && m <= em)) {
+          result.add('$y-${m.toString().padLeft(2, '0')}');
+          m++;
+          if (m > 12) { m = 1; y++; }
+        }
+    }
+    return result;
   }
 
   // ── Date range picker ────────────────────────────────────────────────────
