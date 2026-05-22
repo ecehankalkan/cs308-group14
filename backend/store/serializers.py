@@ -4,7 +4,7 @@ from .models import Customer, Product, Cart, Order, OrderItem, DeliveryAddress, 
 class CategorySerializer(serializers.ModelSerializer):
     class Meta:
         model = Category
-        fields = ['id', 'name', 'description']
+        fields = ['id', 'name', 'description', 'is_active']
 class RegisterSerializer(serializers.ModelSerializer):
     password = serializers.CharField(write_only=True, min_length=8)
 

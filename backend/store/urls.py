@@ -22,7 +22,8 @@ urlpatterns = [
     # Profit Statistics (Sales Manager) 
 
     # Categories
-    path('categories/', views.CategoryListView.as_view(), name='category_list'),
+    path('categories/', views.CategoryListCreateView.as_view(), name='category_list'),
+    path('categories/<int:pk>/', views.CategoryDetailView.as_view(), name='category_detail'),
 
     # Products (public list/detail + manager write operations)
     path('products/',                        views.ProductListView.as_view(),     name='product_list'),

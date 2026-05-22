@@ -6,10 +6,27 @@ from rest_framework.views import APIView
 from ..models import Customer, Product, ProductReview, OrderItem, Order, Category
 from ..serializers import ProductSerializer, ProductReviewSerializer, CategorySerializer
 
-class CategoryListView(generics.ListAPIView):
+class CategoryListCreateView(generics.ListCreateAPIView):
+    serializer_class = CategorySerializer
+
+    def get_permissions(self):
+        if self.request.method == 'POST':
+            return [IsProductManager()]
+        return [permissions.AllowAny()]
+
+    def get_queryset(self):
+        if not (self.request.user.is_authenticated and self.request.user.role == Customer.Role.PRODUCT_MANAGER):
+            return Category.objects.filter(is_active=True)
+        return Category.objects.all()
+
+class CategoryDetailView(generics.RetrieveUpdateAPIView):
     queryset = Category.objects.all()
     serializer_class = CategorySerializer
-    permission_classes = [permissions.AllowAny]
+    
+    def get_permissions(self):
+        if self.request.method in ['PUT', 'PATCH']:
+            return [IsProductManager()]
+        return [permissions.AllowAny()]
 
 
 class IsSalesManager(permissions.BasePermission):
