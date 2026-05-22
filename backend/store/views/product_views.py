@@ -3,8 +3,13 @@ from rest_framework import generics, permissions, status, serializers
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from ..models import Customer, Product, ProductReview, OrderItem, Order
-from ..serializers import ProductSerializer, ProductReviewSerializer
+from ..models import Customer, Product, ProductReview, OrderItem, Order, Category
+from ..serializers import ProductSerializer, ProductReviewSerializer, CategorySerializer
+
+class CategoryListView(generics.ListAPIView):
+    queryset = Category.objects.all()
+    serializer_class = CategorySerializer
+    permission_classes = [permissions.AllowAny]
 
 
 class IsSalesManager(permissions.BasePermission):

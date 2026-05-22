@@ -1,7 +1,10 @@
 from rest_framework import serializers
-from .models import Customer, Product, Cart, Order, OrderItem, DeliveryAddress, PaymentCard, ProductReview
-from .models import Customer, Product, Cart, Order, OrderItem, DeliveryAddress, PaymentCard, ProductReview, Wishlist
+from .models import Customer, Product, Cart, Order, OrderItem, DeliveryAddress, PaymentCard, ProductReview, Wishlist, Category
 
+class CategorySerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Category
+        fields = ['id', 'name', 'description']
 class RegisterSerializer(serializers.ModelSerializer):
     password = serializers.CharField(write_only=True, min_length=8)
 

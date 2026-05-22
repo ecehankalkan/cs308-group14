@@ -21,6 +21,9 @@ urlpatterns = [
     path('manager/reviews/<int:pk>/moderate/',views.ReviewModerationView.as_view(),    name='moderate_review'),
     # Profit Statistics (Sales Manager) 
 
+    # Categories
+    path('categories/', views.CategoryListView.as_view(), name='category_list'),
+
     # Products (public list/detail + manager write operations)
     path('products/',                        views.ProductListView.as_view(),     name='product_list'),
     path('products/<int:pk>/',               views.ProductDetailView.as_view(),   name='product_detail'),

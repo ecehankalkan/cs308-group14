@@ -17,21 +17,37 @@ class ProductManagerProductsPage extends StatefulWidget {
 
 class _ProductManagerProductsPageState extends State<ProductManagerProductsPage> {
   List<Product> _products = [];
-  bool _loading = true;
+  List<Map<String, dynamic>> _categories = [];
+  bool _loading = false;
 
   @override
   void initState() {
     super.initState();
-    _fetchProducts();
+    _fetchData();
+  }
+
+  Future<void> _fetchData() async {
+    setState(() => _loading = true);
+    final products = await ProductAdminService.fetchAllProducts();
+    final categories = await ProductAdminService.fetchCategories();
+    if (mounted) {
+      setState(() {
+        _products = products;
+        _categories = categories;
+        _loading = false;
+      });
+    }
   }
 
   Future<void> _fetchProducts() async {
     setState(() => _loading = true);
     final products = await ProductAdminService.fetchAllProducts();
-    setState(() {
-      _products = products;
-      _loading = false;
-    });
+    if (mounted) {
+      setState(() {
+        _products = products;
+        _loading = false;
+      });
+    }
   }
 
   Future<void> _toggleProductStatus(Product product, bool isActive) async {
@@ -82,6 +98,7 @@ class _ProductManagerProductsPageState extends State<ProductManagerProductsPage>
     
     // Default warranty status
     bool hasWarranty = true;
+    int? selectedCategoryId;
 
     showDialog(
       context: context,
@@ -98,6 +115,24 @@ class _ProductManagerProductsPageState extends State<ProductManagerProductsPage>
                       controller: nameController,
                       decoration: const InputDecoration(labelText: 'Product Name *'),
                     ),
+                    if (_categories.isNotEmpty) ...[
+                      const SizedBox(height: 12),
+                      DropdownButtonFormField<int>(
+                        decoration: const InputDecoration(labelText: 'Category *'),
+                        value: selectedCategoryId,
+                        items: _categories.map((cat) {
+                          return DropdownMenuItem<int>(
+                            value: cat['id'] as int,
+                            child: Text(cat['name'] as String),
+                          );
+                        }).toList(),
+                        onChanged: (val) {
+                          setDialogState(() {
+                            selectedCategoryId = val;
+                          });
+                        },
+                      ),
+                    ],
                     TextField(
                       controller: modelController,
                       decoration: const InputDecoration(labelText: 'Model'),
@@ -162,7 +197,7 @@ class _ProductManagerProductsPageState extends State<ProductManagerProductsPage>
                       'distributor_info': distController.text.trim(),
                       'stock_quantity': stock,
                       'warranty_status': hasWarranty,
-                      // 'category': null, // category can be null if DB allows
+                      'category': selectedCategoryId,
                     });
 
                     if (newProduct != null) {

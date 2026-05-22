@@ -33,6 +33,19 @@ class ProductAdminService {
     return [];
   }
 
+  static Future<List<Map<String, dynamic>>> fetchCategories() async {
+    try {
+      final response = await http.get(Uri.parse('$_baseUrl/categories/'));
+      if (response.statusCode == 200) {
+        final List<dynamic> data = jsonDecode(response.body) as List<dynamic>;
+        return data.map((item) => item as Map<String, dynamic>).toList();
+      }
+    } catch (e) {
+      // ignore
+    }
+    return [];
+  }
+
   // Create Product
   static Future<Product?> createProduct(Map<String, dynamic> productData) async {
     final token = await _getToken();
