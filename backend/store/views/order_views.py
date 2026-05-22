@@ -130,6 +130,53 @@ class OrderActionView(APIView):
         return Response({'error': 'Invalid action. Use "cancel" or "refund".'}, status=status.HTTP_400_BAD_REQUEST)
 
 
+class ProductManagerOrderListView(generics.ListAPIView):
+    """GET /api/manager/orders/ — all orders for the product manager dashboard"""
+    serializer_class   = SalesOrderSerializer
+    permission_classes = [permissions.AllowAny]
+
+    def get_queryset(self):
+        return (
+            Order.objects
+            .select_related('customer')
+            .prefetch_related('items__product')
+            .order_by('-created_at')
+        )
+
+
+class ProductManagerDeliveryUpdateView(APIView):
+    """PATCH /api/manager/orders/<pk>/delivery/ — update delivery status
+    Allowed values: processing (Preparing), in-transit, delivered
+    Only works on orders whose current status is one of those three.
+    """
+    permission_classes = [permissions.AllowAny]
+
+    _ALLOWED = {'processing', 'in-transit', 'delivered'}
+
+    def patch(self, request, pk):
+        try:
+            order = Order.objects.get(pk=pk)
+        except Order.DoesNotExist:
+            return Response({'error': 'Order not found'}, status=status.HTTP_404_NOT_FOUND)
+
+        new_status = request.data.get('status')
+        if new_status not in self._ALLOWED:
+            return Response(
+                {'error': 'Status must be one of: processing, in-transit, delivered'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        if order.status not in self._ALLOWED:
+            return Response(
+                {'error': f'Cannot update delivery status: order is currently {order.status}'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        order.status = new_status
+        order.save(update_fields=['status'])
+        return Response(SalesOrderSerializer(order).data)
+
+
 class SalesRefundDecisionView(APIView):
     """POST /api/sales/orders/<pk>/refund-decision/ — manager accepts or rejects a refund"""
     permission_classes = [permissions.AllowAny]

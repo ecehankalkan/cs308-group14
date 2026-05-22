@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'comment_approval_page.dart';
+import 'product_manager_past_orders_page.dart';
 import 'product_manager_products_page.dart';
 import 'product_manager_categories_page.dart';
 
@@ -52,13 +53,12 @@ class ProductManagerDashboardPage extends StatelessWidget {
                       MaterialPageRoute(builder: (_) => const ProductManagerCategoriesPage()),
                     ),
                   ),
-                  const _DashboardButton(
+                  _DashboardButton(
                     icon: Icons.receipt_long,
                     label: 'Past Orders',
-                  ),
-                  const _DashboardButton(
-                    icon: Icons.local_shipping,
-                    label: 'Delivery Status',
+                    onTap: () => Navigator.of(context).push(
+                      MaterialPageRoute(builder: (_) => const ProductManagerPastOrdersPage()),
+                    ),
                   ),
                   _DashboardButton(
                     icon: Icons.comment,

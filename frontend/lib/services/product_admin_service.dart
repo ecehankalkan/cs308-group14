@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import '../models/product.dart';
+import '../models/order.dart';
 import 'auth_service.dart';
 
 class ProductAdminService {
@@ -145,12 +146,47 @@ class ProductAdminService {
       if (response.statusCode == 200) {
         return 'success';
       } else {
-        print('Error updating product: ${response.statusCode} - ${response.body}');
         return '${response.statusCode} - ${response.body}';
       }
     } catch (e) {
-      print('Exception updating product: $e');
       return 'Exception: $e';
+    }
+  }
+
+  static Future<List<Order>> fetchAllOrders() async {
+    final token = await _getToken();
+    final headers = <String, String>{};
+    if (token != null) {
+      headers['Authorization'] = 'Bearer $token';
+    }
+    try {
+      final response = await http.get(
+        Uri.parse('$_baseUrl/manager/orders/'),
+        headers: headers,
+      );
+      if (response.statusCode == 200) {
+        final List<dynamic> data = jsonDecode(response.body) as List<dynamic>;
+        return data.map((e) => Order.fromJson(e as Map<String, dynamic>)).toList();
+      }
+    } catch (_) {}
+    return [];
+  }
+
+  static Future<bool> updateDeliveryStatus(String orderId, String newStatus) async {
+    final token = await _getToken();
+    final headers = <String, String>{'Content-Type': 'application/json'};
+    if (token != null) {
+      headers['Authorization'] = 'Bearer $token';
+    }
+    try {
+      final response = await http.patch(
+        Uri.parse('$_baseUrl/manager/orders/$orderId/delivery/'),
+        headers: headers,
+        body: jsonEncode({'status': newStatus}),
+      );
+      return response.statusCode == 200;
+    } catch (_) {
+      return false;
     }
   }
 }

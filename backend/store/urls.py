@@ -15,10 +15,14 @@ urlpatterns = [
     path('sales/orders/<int:pk>/invoice/', views.SalesOrderInvoiceView.as_view(), name='sales_order_invoice'),
     path('sales/orders/<int:pk>/refund-decision/', views.SalesRefundDecisionView.as_view(), name='sales_refund_decision'),
     
-    # Comment Approval (Product Manager) 
-    path('manager/reviews/pending/',          views.PendingReviewsListView.as_view(),  name='pending_reviews'),
-    path('manager/reviews/',                  views.AllReviewsListView.as_view(),      name='all_reviews'),
-    path('manager/reviews/<int:pk>/moderate/',views.ReviewModerationView.as_view(),    name='moderate_review'),
+    # Comment Approval (Product Manager)
+    path('manager/reviews/pending/',           views.PendingReviewsListView.as_view(),          name='pending_reviews'),
+    path('manager/reviews/',                   views.AllReviewsListView.as_view(),              name='all_reviews'),
+    path('manager/reviews/<int:pk>/moderate/', views.ReviewModerationView.as_view(),            name='moderate_review'),
+
+    # Order Management (Product Manager)
+    path('manager/orders/',                        views.ProductManagerOrderListView.as_view(),    name='manager_orders'),
+    path('manager/orders/<int:pk>/delivery/',       views.ProductManagerDeliveryUpdateView.as_view(), name='manager_order_delivery'),
     # Profit Statistics (Sales Manager) 
 
     # Categories
