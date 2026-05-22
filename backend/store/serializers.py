@@ -41,8 +41,10 @@ class ProductSerializer(serializers.ModelSerializer):
         request = self.context.get('request')
         if request and request.user and request.user.is_authenticated:
             if getattr(request.user, 'role', None) == 'product_manager':
-                self.fields.pop('price', None)
-                self.fields.pop('discounted_price', None)
+                if 'price' in self.fields:
+                    self.fields['price'].read_only = True
+                if 'discounted_price' in self.fields:
+                    self.fields['discounted_price'].read_only = True
 
     class Meta:
         model  = Product

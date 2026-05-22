@@ -1,16 +1,3 @@
-enum DeweyCategory {
-  generalWorks,   // 000s
-  philosophy,     // 100s
-  religion,       // 200s
-  socialSciences, // 300s
-  language,       // 400s
-  pureScience,    // 500s
-  technology,     // 600s
-  arts,           // 700s
-  literature,     // 800s
-  history,        // 900s
-}
-
 class Product {
   final String id;
   final String name;
@@ -20,7 +7,7 @@ class Product {
   final String warrantyInfo;
   final String distributor;
   final int stockQuantity;
-  final DeweyCategory category;
+  final int? categoryId;
   final double? averageRating;
   final int ratingCount;
   final bool isActive;
@@ -35,7 +22,7 @@ class Product {
     required this.warrantyInfo,
     required this.distributor,
     required this.stockQuantity,
-    required this.category,
+    this.categoryId,
     this.averageRating,
     this.ratingCount = 0,
     this.isActive = true,
@@ -57,7 +44,7 @@ class Product {
           : (map['warranty_status']?.toString() ?? map['warrantyInfo']?.toString() ?? 'Standard Warranty'),
       distributor: map['distributor_info']?.toString() ?? map['distributor']?.toString() ?? 'Default Distributor',
       stockQuantity: map['stock_quantity'] as int? ?? map['stockQuantity'] as int? ?? 0,
-      category: _parseCategory(map['category']),
+      categoryId: map['category'] as int?,
       averageRating: map['average_rating'] != null
           ? double.tryParse(map['average_rating'].toString())
           : null,
@@ -65,14 +52,6 @@ class Product {
       isActive: map['is_active'] as bool? ?? true,
       imageUrl: map['image_url'] as String?,
     );
-  }
-
-  static DeweyCategory _parseCategory(dynamic cat) {
-    if (cat == null) return DeweyCategory.literature;
-    for (var value in DeweyCategory.values) {
-      if (value.name == cat) return value;
-    }
-    return DeweyCategory.literature;
   }
 
   Product copyWith({
@@ -84,7 +63,7 @@ class Product {
     String? warrantyInfo,
     String? distributor,
     int? stockQuantity,
-    DeweyCategory? category,
+    int? categoryId,
     double? averageRating,
     int? ratingCount,
     bool? isActive,
@@ -99,7 +78,7 @@ class Product {
       warrantyInfo: warrantyInfo ?? this.warrantyInfo,
       distributor: distributor ?? this.distributor,
       stockQuantity: stockQuantity ?? this.stockQuantity,
-      category: category ?? this.category,
+      categoryId: categoryId ?? this.categoryId,
       averageRating: averageRating ?? this.averageRating,
       ratingCount: ratingCount ?? this.ratingCount,
       isActive: isActive ?? this.isActive,

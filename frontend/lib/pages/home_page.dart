@@ -35,35 +35,7 @@ String _coverUrl(String title) {
   return 'https://covers.openlibrary.org/b/title/$encoded-M.jpg';
 }
 
-DeweyCategory _categoryFromInt(int? cat) {
-  switch (cat) {
-    case 1:  return DeweyCategory.generalWorks;
-    case 2:  return DeweyCategory.philosophy;
-    case 3:  return DeweyCategory.religion;
-    case 4:  return DeweyCategory.socialSciences;
-    case 5:  return DeweyCategory.language;
-    case 6:  return DeweyCategory.pureScience;
-    case 7:  return DeweyCategory.technology;
-    case 8:  return DeweyCategory.arts;
-    case 9:  return DeweyCategory.literature;
-    case 10: return DeweyCategory.history;
-    default: return DeweyCategory.literature;
-  }
-}
-
-const Map<DeweyCategory, Color> _categoryColors = {
-  DeweyCategory.generalWorks:   Color(0xFF5C7A9E),
-  DeweyCategory.philosophy:     Color(0xFF7B5EA7),
-  DeweyCategory.religion:       Color(0xFFB07D4A),
-  DeweyCategory.socialSciences: Color(0xFF4A8B6F),
-  DeweyCategory.language:       Color(0xFF3A8FA8),
-  DeweyCategory.pureScience:    Color(0xFF2E7D6B),
-  DeweyCategory.technology:     Color(0xFF5A6E8A),
-  DeweyCategory.arts:           Color(0xFFC0534A),
-  DeweyCategory.literature:     Color(0xFF8D7B68),
-  DeweyCategory.history:        Color(0xFF7A6E4A),
-};
-// ─── Home Page ─────────────────────────────────────────────────────────────────
+// ─── Home Page ─────────────────────────────────────────────────────────────────// ─── Home Page ─────────────────────────────────────────────────────────────────
 
 enum _SortOption { none, priceLowHigh, priceHighLow, popularity }
 
@@ -81,7 +53,8 @@ class _HomePageState extends State<HomePage> {
   String?        _fetchError;
 
   String            _searchQuery      = '';
-  DeweyCategory?    _selectedCategory;
+  int?              _selectedCategory;
+  List<Map<String, dynamic>> _dynamicCategories = [];
   double            _minPrice         = 0;
   double            _maxPrice         = 9999;
   _SortOption       _sortOption       = _SortOption.none;
@@ -171,12 +144,30 @@ class _HomePageState extends State<HomePage> {
   @override
   void initState() {
     super.initState();
+    _fetchCategories();
     _fetchProducts();
     _fetchWishlist();
     // Refresh wishlist if user logs in/out
     FirebaseAuth.instance.authStateChanges().listen((user) {
       if (mounted) _fetchWishlist();
     });
+  }
+
+  Future<void> _fetchCategories() async {
+    try {
+      final response = await http.get(Uri.parse('$_baseUrl/categories/'));
+      if (response.statusCode == 200) {
+        final List<dynamic> data = jsonDecode(response.body) as List<dynamic>;
+        if (mounted) {
+          setState(() {
+            _dynamicCategories = data
+                .map((e) => e as Map<String, dynamic>)
+                .where((c) => c['is_active'] == true)
+                .toList();
+          });
+        }
+      }
+    } catch (_) {}
   }
 
   @override
@@ -205,7 +196,7 @@ class _HomePageState extends State<HomePage> {
               warrantyInfo:  map['warranty_status'] == true ? 'Available' : 'None',
               distributor:   map['distributor_info']?.toString() ?? '',
               stockQuantity: map['stock_quantity'] as int? ?? 0,
-              category:      _categoryFromInt(map['category'] as int?),
+              categoryId:    map['category'] as int?,
               averageRating: map['average_rating'] != null
                   ? double.tryParse(map['average_rating'].toString())
                   : null,
@@ -239,7 +230,7 @@ class _HomePageState extends State<HomePage> {
           p.name.toLowerCase().contains(q) ||
           p.description.toLowerCase().contains(q);
       final matchesCategory =
-          _selectedCategory == null || p.category == _selectedCategory;
+          _selectedCategory == null || p.categoryId == _selectedCategory;
       final matchesPrice = p.price >= _minPrice && p.price <= _maxPrice;
       return matchesSearch && matchesCategory && matchesPrice;
     }).toList();
@@ -260,9 +251,9 @@ class _HomePageState extends State<HomePage> {
     return result;
   }
 
-  void _onCategoryTapped(DeweyCategory cat) {
+  void _onCategoryTapped(int catId) {
     setState(() {
-      _selectedCategory = _selectedCategory == cat ? null : cat;
+      _selectedCategory = _selectedCategory == catId ? null : catId;
     });
     final ctx = _searchKey.currentContext;
     if (ctx != null) {
@@ -379,6 +370,7 @@ class _HomePageState extends State<HomePage> {
             _CategoriesSection(
               selectedCategory: _selectedCategory,
               onCategoryTapped: _onCategoryTapped,
+              categories: _dynamicCategories,
             ),
             _Footer(),
           ],
@@ -801,7 +793,7 @@ class _ProductCard extends StatelessWidget {
       decoration: BoxDecoration(
         color: _offWhite,
         borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: _categoryColors[product.category]!, width: 1.5),
+        border: Border.all(color: _medium, width: 1.5),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -864,8 +856,8 @@ class _ProductCard extends StatelessWidget {
                     product.name,
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
-                      color: _categoryColors[product.category],
+                    style: const TextStyle(
+                      color: _dark,
                       fontSize: 13, fontWeight: FontWeight.w700, height: 1.3,
                     ),
                   ),
@@ -1012,28 +1004,27 @@ class _ProductCard extends StatelessWidget {
 
 // ─── Categories Section ───────────────────────────────────────────────────────
 class _CategoriesSection extends StatelessWidget {
-  final DeweyCategory?              selectedCategory;
-  final ValueChanged<DeweyCategory> onCategoryTapped;
+  final int?                          selectedCategory;
+  final ValueChanged<int>             onCategoryTapped;
+  final List<Map<String, dynamic>>    categories;
 
   const _CategoriesSection({
     required this.selectedCategory,
     required this.onCategoryTapped,
+    required this.categories,
   });
 
   @override
   Widget build(BuildContext context) {
-    final categories = [
-      (DeweyCategory.generalWorks,   '000s · General Works',       Icons.public_outlined,                  const Color(0xFF5C7A9E)),
-      (DeweyCategory.philosophy,     '100s · Philosophy',          Icons.psychology_outlined,              const Color(0xFF7B5EA7)),
-      (DeweyCategory.religion,       '200s · Religion',            Icons.temple_hindu_outlined,            const Color(0xFFB07D4A)),
-      (DeweyCategory.socialSciences, '300s · Social Sciences',     Icons.groups_outlined,                  const Color(0xFF4A8B6F)),
-      (DeweyCategory.language,       '400s · Language',            Icons.translate_outlined,               const Color(0xFF3A8FA8)),
-      (DeweyCategory.pureScience,    '500s · Pure Science',        Icons.science_outlined,                 const Color(0xFF2E7D6B)),
-      (DeweyCategory.technology,     '600s · Technology',          Icons.precision_manufacturing_outlined, const Color(0xFF5A6E8A)),
-      (DeweyCategory.arts,           '700s · Arts & Recreation',   Icons.palette_outlined,                 const Color(0xFFC0534A)),
-      (DeweyCategory.literature,     '800s · Literature',          Icons.auto_stories_outlined,            const Color(0xFF8D7B68)),
-      (DeweyCategory.history,        '900s · History & Geography', Icons.travel_explore_outlined,          const Color(0xFF7A6E4A)),
+    // We use a fixed palette for dynamically fetched categories
+    final List<Color> palette = [
+      const Color(0xFF5C7A9E), const Color(0xFF7B5EA7), const Color(0xFFB07D4A),
+      const Color(0xFF4A8B6F), const Color(0xFF3A8FA8), const Color(0xFF2E7D6B),
+      const Color(0xFF5A6E8A), const Color(0xFFC0534A), const Color(0xFF8D7B68),
+      const Color(0xFF7A6E4A),
     ];
+
+    if (categories.isEmpty) return const SizedBox();
 
     return Container(
       color: _offWhite,
@@ -1048,38 +1039,42 @@ class _CategoriesSection extends StatelessWidget {
           const SizedBox(height: 40),
           Wrap(
             spacing: 20, runSpacing: 20, alignment: WrapAlignment.center,
-            children: categories.map((cat) {
-              final isSelected = selectedCategory == cat.$1;
+            children: categories.map((catMap) {
+              final catId = catMap['id'] as int;
+              final catName = catMap['name'] as String;
+              final isSelected = selectedCategory == catId;
+              final color = palette[catId % palette.length];
+
               return InkWell(
-                onTap: () => onCategoryTapped(cat.$1),
+                onTap: () => onCategoryTapped(catId),
                 borderRadius: BorderRadius.circular(8),
                 child: AnimatedContainer(
                   duration: const Duration(milliseconds: 200),
                   width: 160, height: 130,
                   decoration: BoxDecoration(
                     color: isSelected
-                        ? cat.$4.withValues(alpha: 0.25)
-                        : cat.$4.withValues(alpha: 0.10),
+                        ? color.withValues(alpha: 0.25)
+                        : color.withValues(alpha: 0.10),
                     borderRadius: BorderRadius.circular(8),
                     border: Border.all(
-                      color: isSelected ? cat.$4 : cat.$4.withValues(alpha: 0.4),
+                      color: isSelected ? color : color.withValues(alpha: 0.4),
                       width: isSelected ? 2.5 : 1.5,
                     ),
                     boxShadow: isSelected
-                        ? [BoxShadow(color: cat.$4.withValues(alpha: 0.30), blurRadius: 8, offset: const Offset(0, 3))]
+                        ? [BoxShadow(color: color.withValues(alpha: 0.30), blurRadius: 8, offset: const Offset(0, 3))]
                         : [],
                   ),
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      Icon(cat.$3, color: cat.$4, size: isSelected ? 40 : 36),
+                      Icon(Icons.category_outlined, color: color, size: isSelected ? 40 : 36),
                       const SizedBox(height: 12),
                       Padding(
                         padding: const EdgeInsets.symmetric(horizontal: 8),
-                        child: Text(cat.$2,
+                        child: Text(catName,
                           textAlign: TextAlign.center,
                           style: TextStyle(
-                            color: cat.$4, fontSize: 12,
+                            color: color, fontSize: 12,
                             fontWeight: isSelected ? FontWeight.w800 : FontWeight.w700,
                           ),
                         ),
@@ -1087,7 +1082,7 @@ class _CategoriesSection extends StatelessWidget {
                       if (isSelected) ...[
                         const SizedBox(height: 6),
                         Text('Tap to clear',
-                            style: TextStyle(color: cat.$4.withValues(alpha: 0.7), fontSize: 10)),
+                            style: TextStyle(color: color.withValues(alpha: 0.7), fontSize: 10)),
                       ]
                     ],
                   ),

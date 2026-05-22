@@ -345,7 +345,7 @@ class _ProductManagerProductsPageState extends State<ProductManagerProductsPage>
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
                                     const SizedBox(height: 4),
-                                    Text('Category: ${product.category.name}'),
+                                    Text('Category: ${_categories.firstWhere((c) => c['id'] == product.categoryId, orElse: () => {'name': 'Unknown'})['name']}'),
                                     const SizedBox(height: 2),
                                     Text(
                                       product.description,
