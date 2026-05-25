@@ -59,7 +59,8 @@ class ProductListView(generics.ListCreateAPIView):
         category = self.request.query_params.get('category')
         sort     = self.request.query_params.get('sort')
 
-        if not (self.request.user.is_authenticated and self.request.user.role == Customer.Role.PRODUCT_MANAGER):
+        manager_roles = {Customer.Role.PRODUCT_MANAGER, Customer.Role.SALES_MANAGER}
+        if not (self.request.user.is_authenticated and self.request.user.role in manager_roles):
             qs = qs.filter(is_active=True)
 
         if search:
@@ -192,6 +193,13 @@ class ProductPriceView(APIView):
             except (TypeError, ValueError):
                 return Response({'error': 'Invalid discount_percentage'}, status=status.HTTP_400_BAD_REQUEST)
 
+        from decimal import Decimal
+        if product.is_active and product.price <= Decimal('0'):
+            return Response(
+                {'error': 'Cannot set price to 0 while product is active. Deactivate the product first.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
         product.save()
 
         if product.discounted_price is not None and product.discounted_price < product.price:
@@ -220,24 +228,41 @@ class ProductReviewListCreateView(generics.ListCreateAPIView):
     def perform_create(self, serializer):
         product_id = self.kwargs.get('product_id')
         product = Product.objects.get(pk=product_id)
-        
-        # Check if user has purchased this product and it's been delivered
+
         order_item = OrderItem.objects.filter(
             order__customer=self.request.user,
             order__status=Order.Status.DELIVERED,
             product_id=product_id
         ).first()
-        
+
         if not order_item:
             raise serializers.ValidationError(
                 "You can only review products you have purchased and received."
             )
-        
-        serializer.save(
+
+        existing = ProductReview.objects.filter(
             product=product,
             customer=self.request.user,
-            order_item=order_item
-        )
+        ).first()
+
+        if existing:
+            if existing.status != ProductReview.Status.REJECTED:
+                raise serializers.ValidationError(
+                    "You have already submitted a review for this product."
+                )
+            # Reopen the rejected review as a fresh pending submission
+            existing.rating = serializer.validated_data.get('rating')
+            existing.comment = serializer.validated_data.get('comment', '')
+            existing.order_item = order_item
+            existing.status = ProductReview.Status.PENDING
+            existing.save()
+            serializer.instance = existing
+        else:
+            serializer.save(
+                product=product,
+                customer=self.request.user,
+                order_item=order_item
+            )
 
     def get_permissions(self):
         if self.request.method == 'POST':

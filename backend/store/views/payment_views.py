@@ -55,6 +55,13 @@ def checkout_view(request):
         product = cart_item.product
         quantity = cart_item.quantity
         
+        # Check product is still available
+        if not product.is_active:
+            return Response(
+                {'error': f'{product.name} is no longer available.'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
         # Check stock availability
         if product.stock_quantity < quantity:
             return Response(

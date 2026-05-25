@@ -8,8 +8,12 @@ class ProductService {
 
   Future<List<Product>> fetchAllProducts() async {
     try {
+      final token = await AuthService.getAccessToken();
+      final headers = <String, String>{};
+      if (token != null) headers['Authorization'] = 'Bearer $token';
       final response = await http.get(
         Uri.parse('$_baseUrl/api/products/'),
+        headers: headers,
       );
 
       if (response.statusCode == 200) {
