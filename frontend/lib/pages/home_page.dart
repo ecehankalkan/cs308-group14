@@ -17,14 +17,38 @@ const _offWhite = Color(0xFFFAF5EF);
 
 const String _baseUrl = 'http://127.0.0.1:8000/api';
 
-// ─── Hardcoded covers for books that need specific/reliable images ─────────────
+// ─── ISBN-based covers (reliable) for all known products ──────────────────────
 const Map<String, String> _hardcodedCovers = {
-  'The Bible':
-      'https://covers.openlibrary.org/b/isbn/9780310446958-M.jpg',
-  'The Oxford Dictionary of English':
-      'https://covers.openlibrary.org/b/isbn/9780199571123-M.jpg',
-  'The Encyclopaedia Britannica Vol. 1':
-      'https://covers.openlibrary.org/b/isbn/9780852294239-M.jpg',
+  '1984':                                       'https://covers.openlibrary.org/b/isbn/9780451524935-M.jpg',
+  'The Art of War':                             'https://covers.openlibrary.org/b/isbn/9781599869773-M.jpg',
+  'Dune':                                       'https://covers.openlibrary.org/b/isbn/9780441013593-M.jpg',
+  'Atomic Habits':                              'https://covers.openlibrary.org/b/isbn/9780735211292-M.jpg',
+  'The Alchemist':                              'https://covers.openlibrary.org/b/isbn/9780062315007-M.jpg',
+  'Thinking, Fast and Slow':                    'https://covers.openlibrary.org/b/isbn/9780374533557-M.jpg',
+  'The Midnight Library':                       'https://covers.openlibrary.org/b/isbn/9780525559474-M.jpg',
+  'Sapiens':                                    'https://covers.openlibrary.org/b/isbn/9780062316097-M.jpg',
+  'To Kill a Mockingbird':                      'https://covers.openlibrary.org/b/isbn/9780061935466-M.jpg',
+  'Homo Deus':                                  'https://covers.openlibrary.org/b/isbn/9780062464316-M.jpg',
+  "The Hitchhiker's Guide to the Galaxy":       'https://covers.openlibrary.org/b/isbn/9780345391803-M.jpg',
+  'Guns, Germs, and Steel':                     'https://covers.openlibrary.org/b/isbn/9780393317558-M.jpg',
+  'The Bible':                                  'https://covers.openlibrary.org/b/isbn/9780310446958-M.jpg',
+  'The Oxford Dictionary of English':           'https://covers.openlibrary.org/b/isbn/9780199571123-M.jpg',
+  'Introduction to Algorithms':                 'https://covers.openlibrary.org/b/isbn/9780262033848-M.jpg',
+  'The Story of Art':                           'https://covers.openlibrary.org/b/isbn/9780714832470-M.jpg',
+  'Freakonomics':                               'https://covers.openlibrary.org/b/isbn/9780060731335-M.jpg',
+  'The Communist Manifesto':                    'https://covers.openlibrary.org/b/isbn/9780140447576-M.jpg',
+  'The Elements of Style':                      'https://covers.openlibrary.org/b/isbn/9780205309023-M.jpg',
+  'The Encyclopaedia Britannica Vol. 1':        'https://covers.openlibrary.org/b/isbn/9780852294239-M.jpg',
+  'Crime and Punishment':                       'https://covers.openlibrary.org/b/isbn/9780140449136-M.jpg',
+  'The Joy of Music':                           'https://covers.openlibrary.org/b/isbn/9781574670134-M.jpg',
+  'Educated':                                   'https://covers.openlibrary.org/b/isbn/9780399590504-M.jpg',
+  'The Power of Now':                           'https://covers.openlibrary.org/b/isbn/9781577314806-M.jpg',
+  'The Lean Startup':                           'https://covers.openlibrary.org/b/isbn/9780307887894-M.jpg',
+  'A Brief History of Time':                    'https://covers.openlibrary.org/b/isbn/9780553380163-M.jpg',
+  'Clean Code':                                 'https://covers.openlibrary.org/b/isbn/9780132350884-M.jpg',
+  'The Great Gatsby':                           'https://covers.openlibrary.org/b/isbn/9780743273565-M.jpg',
+  'The Selfish Gene':                           'https://covers.openlibrary.org/b/isbn/9780198788607-M.jpg',
+  "Harry Potter and the Philosopher's Stone":   'https://covers.openlibrary.org/b/isbn/9780439708180-M.jpg',
 };
 
 String _coverUrl(String title) {
@@ -690,13 +714,6 @@ class _FeaturedBooksSection extends StatelessWidget {
       padding: const EdgeInsets.symmetric(vertical: 64, horizontal: 48),
       child: Column(
         children: [
-          const Text('Featured Books',
-              style: TextStyle(color: _dark, fontSize: 32, fontWeight: FontWeight.w700, letterSpacing: 1)),
-          const SizedBox(height: 8),
-          const Text('Handpicked favourites from our collection',
-              style: TextStyle(color: _medium, fontSize: 15)),
-          const SizedBox(height: 40),
-
           if (loading)
             const Padding(
               padding: EdgeInsets.symmetric(vertical: 48),
