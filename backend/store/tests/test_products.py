@@ -130,7 +130,7 @@ class ProductTests(TestCase):
     def test_wishlist_discount_notification_email(self):
         # Create a wishlist entry for the customer
         Wishlist.objects.create(customer=self.customer, product=self.product)
-        
+
         # Now update the discount as sales manager
         self.client.force_authenticate(user=self.sales_manager)
         r = self.client.post(
@@ -138,9 +138,42 @@ class ProductTests(TestCase):
             {'discounted_price': 30.00}
         )
         self.assertEqual(r.status_code, 200)
-        
+
         # Verify an email was sent
         self.assertEqual(len(mail.outbox), 1)
         self.assertIn("Price drop on Django Unleashed", mail.outbox[0].subject)
         self.assertEqual(mail.outbox[0].to, [self.customer.email])
+
+    def test_price_update_by_regular_customer_fails(self):
+        self.client.force_authenticate(user=self.customer)
+        r = self.client.patch(
+            f'/api/products/{self.product.pk}/price/', {'price': 10.00}, format='json'
+        )
+        self.assertEqual(r.status_code, 403)
+
+    def test_price_update_to_zero_on_active_product_fails(self):
+        self.client.force_authenticate(user=self.sales_manager)
+        r = self.client.patch(
+            f'/api/products/{self.product.pk}/price/', {'price': 0}, format='json'
+        )
+        self.assertEqual(r.status_code, 400)
+
+    def test_my_review_returns_204_when_no_review_exists(self):
+        self.client.force_authenticate(user=self.customer)
+        r = self.client.get(f'/api/products/{self.product.pk}/my-review/')
+        self.assertEqual(r.status_code, 204)
+
+    def test_my_review_returns_own_review(self):
+        from store.models import ProductReview
+        review = ProductReview.objects.create(
+            product=self.product,
+            customer=self.customer,
+            rating=4,
+            comment='Great book',
+            status=ProductReview.Status.PENDING,
+        )
+        self.client.force_authenticate(user=self.customer)
+        r = self.client.get(f'/api/products/{self.product.pk}/my-review/')
+        self.assertEqual(r.status_code, 200)
+        self.assertEqual(r.data['id'], review.pk)
 
