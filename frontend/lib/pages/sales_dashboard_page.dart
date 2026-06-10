@@ -7,6 +7,8 @@ import '../models/product.dart';
 import '../services/order_service.dart';
 import '../services/product_service.dart';
 
+const _nonRevenueStatuses = {'refunded', 'cancelled', 'refund-requested'};
+
 class SalesDashboardPage extends StatefulWidget {
   const SalesDashboardPage({super.key});
 
@@ -83,7 +85,9 @@ class _SalesDashboardPageState extends State<SalesDashboardPage>
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final discountedCount = _products.where((p) => p.discountedPrice != null).length;
-    final totalRevenue = _orders.fold(0.0, (sum, o) => sum + o.totalAmount);
+    final totalRevenue = _orders
+        .where((o) => !_nonRevenueStatuses.contains(o.status))
+        .fold(0.0, (sum, o) => sum + o.totalAmount);
 
     return Scaffold(
       appBar: AppBar(
@@ -567,9 +571,10 @@ class _RevenueTabState extends State<_RevenueTab> {
   // ── Data helpers ─────────────────────────────────────────────────────────
 
   List<Order> get _rangeOrders {
-    if (_range == null) return widget.orders;
+    final base = widget.orders.where((o) => !_nonRevenueStatuses.contains(o.status));
+    if (_range == null) return base.toList();
     final end = DateTime(_range!.end.year, _range!.end.month, _range!.end.day, 23, 59, 59);
-    return widget.orders
+    return base
         .where((o) => !o.createdAt.isBefore(_range!.start) && !o.createdAt.isAfter(end))
         .toList();
   }

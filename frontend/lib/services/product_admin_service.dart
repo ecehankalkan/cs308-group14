@@ -197,6 +197,20 @@ class ProductAdminService {
     return [];
   }
 
+  static Future<bool> deleteProduct(String id) async {
+    final token = await _getToken();
+    if (token == null) return false;
+    try {
+      final response = await http.delete(
+        Uri.parse('$_baseUrl/products/$id/'),
+        headers: {'Authorization': 'Bearer $token'},
+      );
+      return response.statusCode == 204;
+    } catch (_) {
+      return false;
+    }
+  }
+
   static Future<bool> updateDeliveryStatus(String orderId, String newStatus) async {
     final token = await _getToken();
     final headers = <String, String>{'Content-Type': 'application/json'};

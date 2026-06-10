@@ -88,6 +88,37 @@ class _ProductManagerProductsPageState extends State<ProductManagerProductsPage>
     }
   }
 
+  Future<void> _deleteProduct(Product product) async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Delete Product'),
+        content: Text('Permanently delete "${product.name}"? This cannot be undone.'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Delete', style: TextStyle(color: Colors.red)),
+          ),
+        ],
+      ),
+    );
+    if (confirm != true) return;
+
+    final ok = await ProductAdminService.deleteProduct(product.id);
+    if (!mounted) return;
+    if (ok) {
+      setState(() => _products.removeWhere((p) => p.id == product.id));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('${product.name} deleted.'), backgroundColor: Colors.green),
+      );
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Failed to delete product.'), backgroundColor: Colors.red),
+      );
+    }
+  }
+
   Future<void> _editStock(Product product) async {
     final controller = TextEditingController(text: product.stockQuantity.toString());
     final formKey = GlobalKey<FormState>();
@@ -381,6 +412,12 @@ class _ProductManagerProductsPageState extends State<ProductManagerProductsPage>
                                       icon: const Icon(Icons.edit, size: 16),
                                       label: const Text('Edit Stock'),
                                       onPressed: () => _editStock(product),
+                                    ),
+                                    const SizedBox(width: 8),
+                                    IconButton(
+                                      icon: const Icon(Icons.delete_outline, color: Colors.red),
+                                      tooltip: 'Delete product',
+                                      onPressed: () => _deleteProduct(product),
                                     ),
                                     const SizedBox(width: 16),
                                     Row(
