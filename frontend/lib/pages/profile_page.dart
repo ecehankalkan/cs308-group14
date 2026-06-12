@@ -120,6 +120,55 @@ class _ProfilePageState extends State<ProfilePage> with WidgetsBindingObserver {
     });
   }
 
+  Future<void> _editTaxId() async {
+    final controller = TextEditingController(text: _taxId);
+    final newTaxId = await showDialog<String>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Edit Tax ID', style: TextStyle(color: _dark)),
+        content: TextField(
+          controller: controller,
+          decoration: const InputDecoration(
+            hintText: 'Enter your Tax ID',
+            focusedBorder: UnderlineInputBorder(borderSide: BorderSide(color: _dark)),
+          ),
+          cursorColor: _dark,
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel', style: TextStyle(color: _medium)),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(context, controller.text.trim()),
+            style: ElevatedButton.styleFrom(backgroundColor: _dark, foregroundColor: _offWhite),
+            child: const Text('Save'),
+          ),
+        ],
+      ),
+    );
+
+    if (newTaxId != null && mounted) {
+      setState(() => _isLoading = true);
+      final success = await _userService.updateTaxId(newTaxId);
+      if (!mounted) return;
+      if (success) {
+        setState(() {
+          _taxId = newTaxId;
+          _isLoading = false;
+        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Tax ID updated.'), backgroundColor: Colors.green),
+        );
+      } else {
+        setState(() => _isLoading = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Failed to update Tax ID.'), backgroundColor: Colors.red),
+        );
+      }
+    }
+  }
+
   Future<void> _addAddress() async {
     if (!_addressFormKey.currentState!.validate()) return;
     setState(() => _isSavingAddress = true);
@@ -363,7 +412,7 @@ class _ProfilePageState extends State<ProfilePage> with WidgetsBindingObserver {
                 const SizedBox(height: 14),
                 _InfoRow(label: 'User ID', value: user.uid),
                 _InfoRow(label: 'Email', value: user.email ?? '—'),
-                _InfoRow(label: 'Tax ID', value: _taxId ?? '—'),
+                _InfoRow(label: 'Tax ID', value: _taxId?.isEmpty ?? true ? '—' : _taxId!, onEdit: _editTaxId),
                 _InfoRow(label: 'Home Address', value: _homeAddress ?? '—'),
               ],
             ),
@@ -875,7 +924,8 @@ class _SectionCard extends StatelessWidget {
 class _InfoRow extends StatelessWidget {
   final String label;
   final String value;
-  const _InfoRow({required this.label, required this.value});
+  final VoidCallback? onEdit;
+  const _InfoRow({required this.label, required this.value, this.onEdit});
 
   @override
   Widget build(BuildContext context) {
@@ -901,6 +951,14 @@ class _InfoRow extends StatelessWidget {
               style: const TextStyle(color: _dark, fontSize: 13),
             ),
           ),
+          if (onEdit != null)
+            InkWell(
+              onTap: onEdit,
+              child: const Padding(
+                padding: EdgeInsets.only(left: 8.0),
+                child: Icon(Icons.edit_outlined, size: 16, color: _medium),
+              ),
+            ),
         ],
       ),
     );

@@ -51,4 +51,18 @@ class UserService {
       return false;
     }
   }
+
+  Future<bool> updateTaxId(String taxId) async {
+    try {
+      final headers = await AuthService.getAuthHeaders();
+      final response = await http.patch(
+        Uri.parse('$_baseUrl/api/profile/'),
+        headers: headers,
+        body: jsonEncode({'tax_id': taxId}),
+      );
+      return response.statusCode >= 200 && response.statusCode < 300;
+    } catch (_) {
+      return false;
+    }
+  }
 }
